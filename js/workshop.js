@@ -18,12 +18,13 @@ const Workshop = (() => {
     switchDefect: 'Schaltkontakt defekt',
     lnSwap:       'L / N vertauscht',
     koerper:      'Körperschluss (L an PE)',
+    steckPE:      'PE fehlt an Steckdose',
   };
   const START = { red: { x: 250, y: 520 }, black: { x: 660, y: 520 } };
 
   const state = {
     fuseOn: true, switchOn: true,
-    faults: { fuseBlown: false, pe: false, n: false, lampL: false, switchDefect: false, lnSwap: false, koerper: false },
+    faults: { fuseBlown: false, pe: false, n: false, lampL: false, switchDefect: false, lnSwap: false, koerper: false, steckPE: false },
     active: 'none', score: 0, taskDone: false,
   };
 
@@ -45,6 +46,9 @@ const Workshop = (() => {
       case 'D_N':                           return N;
       case 'V_PE':                          return state.faults.koerper ? 230 : 0;
       case 'D_PE': case 'Lampe_PE':         return PE;
+      case 'Steck_L':                       return Lsrc;   // Steckdose ist ungeschaltet
+      case 'Steck_N':                       return N;
+      case 'Steck_PE':                      return state.faults.koerper ? 230 : ((state.faults.pe || state.faults.steckPE) ? null : 0);
       default:                              return 0;
     }
   }
@@ -101,6 +105,7 @@ const Workshop = (() => {
     app.stage.addChild(d); label(430, 200, 'Abzweigdose');
     box(395, 78, 70, 54, 'Schalter');
     box(720, 225, 95, 95, 'Leuchte');
+    box(630, 40, 80, 62, 'Steckdose');
   }
 
   function buildTerminals() {
@@ -110,6 +115,7 @@ const Workshop = (() => {
       ['D_Lsw', 492, 240, 'L'],
       ['S_in', 405, 132, 'L'], ['S_out', 455, 132, 'L'],
       ['Lampe_L', 720, 250, 'L'], ['Lampe_N', 720, 275, 'N'], ['Lampe_PE', 720, 300, 'PE'],
+      ['Steck_L', 650, 120, 'L'], ['Steck_N', 672, 120, 'N'], ['Steck_PE', 694, 120, 'PE'],
     ];
     defs.forEach(([id, x, y, ader]) => {
       const g = new PIXI.Graphics();
@@ -202,13 +208,14 @@ const Workshop = (() => {
     g.lineStyle(22, 0x565c66, 0.25); g.moveTo(jax, jay).lineTo(jbx, jby);
     const coreOff = [-7, 0, 7];
     ids.forEach((id, i) => {
-      const p = pot(id), a = p === null ? 0.28 : 1, to = termOff[i], co = coreOff[i];
+      const to = termOff[i], co = coreOff[i];
       const base = i === 0 ? COL.L : i === 1 ? COL.N : COL.PE;
-      g.lineStyle(4, base, a);
+      // Adern IMMER gleich sichtbar (voller Farbwert) — ein Fehler darf man NICHT
+      // am Bild erkennen, sondern nur mit dem Duspol messen.
+      g.lineStyle(4, base, 1);
       g.moveTo(ax + nx * to, ay + ny * to).lineTo(jax + nx * co, jay + ny * co)
        .lineTo(jbx + nx * co, jby + ny * co).lineTo(bx + nx * to, by + ny * to);
-      if (i === 2) { g.lineStyle(2, p === 230 ? 0xff5c5c : COL.PEy, a).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); }
-      if (i === 0 && p === 230) { g.lineStyle(2, 0xfff2a8, 0.9).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); }
+      if (i === 2) { g.lineStyle(2, COL.PEy, 1).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); } // PE grün-gelb (Normalfarbe)
     });
   }
   function redraw() {
@@ -216,6 +223,7 @@ const Workshop = (() => {
     cable(sceneG, 160, 275, 372, 275, ['D_L', 'D_N', 'D_PE'], [-40, 0, 40]);
     cable(sceneG, 430, 213, 430, 132, ['S_in', 'S_out'], [-25, 25]);
     cable(sceneG, 492, 275, 720, 275, ['Lampe_L', 'Lampe_N', 'Lampe_PE'], [-25, 0, 25]);
+    cable(sceneG, 470, 232, 672, 120, ['Steck_L', 'Steck_N', 'Steck_PE'], [-22, 0, 22]);
 
     lampGlow.clear();
     if (lampLit()) lampGlow.beginFill(0xffd34d, 0.9).drawCircle(767, 272, 30).endFill().beginFill(0xffd34d, 0.25).drawCircle(767, 272, 48).endFill();
@@ -243,7 +251,7 @@ const Workshop = (() => {
 
   /* --- Aufgabe / Diagnose ------------------------------------------------*/
   function newTask() {
-    const pool = ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'pe', 'n', 'lampL', 'none'];
+    const pool = ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE', 'pe', 'n', 'lampL', 'none'];
     const active = pool[Math.floor(Math.random() * pool.length)];
     Object.keys(state.faults).forEach(k => state.faults[k] = (k === active));
     state.active = active; state.taskDone = false;
