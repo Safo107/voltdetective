@@ -20,7 +20,7 @@ const Workshop = (() => {
 
   const state = {
     scene: 'basis', fuseOn: true, switchOn: true, fiArmed: true, fiTestTrip: false,
-    p1: 0, p2: 0, faults: {}, brokenTrav: 1, defSwitch: 1, steckWhich: 'A',
+    p1: 0, p2: 0, pk: 0, faults: {}, brokenTrav: 1, brokenSeg: 'A1', defSwitch: 1, steckWhich: 'A',
     active: 'none', score: 0, taskDone: false,
   };
 
@@ -128,6 +128,60 @@ const Workshop = (() => {
         if (id === 'S1_com') return Lsrc;
         if (id === 'W_LampeL') return nodeV('S2_com');
         if (['K_a1', 'K_a2', 'K_b1', 'K_b2', 'S2_com'].indexOf(id) !== -1) return nodeV(id);
+        return 0;
+      },
+    },
+
+    kreuz: {
+      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE'],
+      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'none'],
+      controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'fi', label: 'FI' }, { key: 'fitest', label: 'Prüftaste' }, { key: 'p1', label: 'Schalter 1' }, { key: 'pk', label: 'Kreuzschalter' }, { key: 'p2', label: 'Schalter 2' }],
+      lamp: { L: 'K_LampeL', N: 'K_LampeN', x: 790, y: 305 },
+      sockets: [{ id: 'A', x: 320, y: 55 }, { id: 'B', x: 520, y: 55 }],
+      terminals: [
+        ['V_L', 150, 255, 'L'], ['V_N', 150, 295, 'N'], ['V_PE', 150, 335, 'PE'],
+        ['S1_com', 225, 255, 'L'], ['A1', 300, 200, 'L'], ['A2', 300, 330, 'L'],
+        ['B1', 520, 200, 'L'], ['B2', 520, 330, 'L'], ['S2_com', 600, 255, 'L'],
+        ['K_LampeL', 760, 285, 'L'], ['K_LampeN', 760, 310, 'N'], ['K_LampePE', 760, 335, 'PE'],
+      ],
+      draw(g) {
+        boxG(g, 40, 170, 80, 230, 'Verteiler + LS');
+        fiG(g, 46, 340, 68);
+        boxG(g, 190, 215, 55, 70, 'Wechsel- schalter 1');
+        boxG(g, 385, 205, 70, 130, 'Kreuz- schalter');
+        boxG(g, 570, 215, 55, 70, 'Wechsel- schalter 2');
+        boxG(g, 745, 260, 90, 90, 'Leuchte');
+        line(g, 150, 255, 225, 255, 'L');
+        line(g, 225, 255, 300, 200, 'L'); line(g, 225, 255, 300, 330, 'L');
+        line(g, 300, 200, 385, 225, 'L'); line(g, 300, 330, 385, 315, 'L');
+        line(g, 455, 225, 520, 200, 'L'); line(g, 455, 315, 520, 330, 'L');
+        line(g, 520, 200, 600, 255, 'L'); line(g, 520, 330, 600, 255, 'L');
+        line(g, 600, 255, 760, 285, 'L');
+        line(g, 150, 295, 760, 310, 'N');
+        line(g, 150, 335, 760, 335, 'PE');
+      },
+      pot(id) {
+        const Lsrc = powerOn() ? 230 : 0;
+        const N = state.faults.n ? null : 0;
+        const PE = state.faults.pe ? null : 0;
+        if (id === 'V_L') return Lsrc;
+        if (id === 'V_N') return 0;
+        if (id === 'V_PE') return 0;
+        if (id === 'K_LampeN') return N;
+        if (id === 'K_LampePE') return PE;
+        const broken = state.faults.korrespondierend ? state.brokenSeg : null;
+        const adj = {};
+        const link = (a, b) => { if (a !== broken && b !== broken) { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); } };
+        const sd = state.faults.switchDefect;
+        if (!(sd && state.defSwitch === 1)) link('S1_com', state.p1 === 0 ? 'A1' : 'A2');
+        if (!(sd && state.defSwitch === 2)) { if (state.pk === 0) { link('A1', 'B1'); link('A2', 'B2'); } else { link('A1', 'B2'); link('A2', 'B1'); } }
+        if (!(sd && state.defSwitch === 3)) link('S2_com', state.p2 === 0 ? 'B1' : 'B2');
+        const reach = (start) => { const seen = new Set(), st = [start]; while (st.length) { const x = st.pop(); if (seen.has(x)) continue; seen.add(x); (adj[x] || []).forEach(y => st.push(y)); } return seen; };
+        const src = reach('S1_com'), lampSet = reach('S2_com');
+        const nodeV = n => (Lsrc && src.has(n)) ? 230 : (lampSet.has(n) ? 0 : (src.has(n) ? 0 : null));
+        if (id === 'S1_com') return Lsrc;
+        if (id === 'K_LampeL') return nodeV('S2_com');
+        if (['A1', 'A2', 'B1', 'B2', 'S2_com'].indexOf(id) !== -1) return nodeV(id);
         return 0;
       },
     },
@@ -304,8 +358,8 @@ const Workshop = (() => {
     const pool = SC().pool, active = pool[Math.floor(Math.random() * pool.length)], keys = SC().faults;
     state.faults = {}; keys.forEach(k => state.faults[k] = (k === active));
     state.active = active; state.taskDone = false;
-    state.fuseOn = true; state.switchOn = true; state.fiArmed = true; state.fiTestTrip = false; state.p1 = 0; state.p2 = 0;
-    state.brokenTrav = Math.random() < 0.5 ? 1 : 2; state.defSwitch = Math.random() < 0.5 ? 1 : 2;
+    state.fuseOn = true; state.switchOn = true; state.fiArmed = true; state.fiTestTrip = false; state.p1 = 0; state.p2 = 0; state.pk = 0;
+    state.brokenTrav = Math.random() < 0.5 ? 1 : 2; state.brokenSeg = ['A1', 'A2', 'B1', 'B2'][Math.floor(Math.random() * 4)]; state.defSwitch = 1 + Math.floor(Math.random() * 3);
     const socks = (SC().sockets || []); state.steckWhich = socks.length ? socks[Math.floor(Math.random() * socks.length)].id : 'A';
     probes.red.x = START.red.x; probes.red.y = START.red.y; probes.red.snap = null;
     probes.black.x = START.black.x; probes.black.y = START.black.y; probes.black.snap = null;
@@ -319,6 +373,7 @@ const Workshop = (() => {
     else if (key === 'fitest') { state.fiArmed = false; state.fiTestTrip = true; }   // Prüftaste löst FI aus
     else if (key === 'p1') state.p1 = state.p1 ? 0 : 1;
     else if (key === 'p2') state.p2 = state.p2 ? 0 : 1;
+    else if (key === 'pk') state.pk = state.pk ? 0 : 1;
     redraw();
   }
   function opState(key) {
@@ -332,6 +387,7 @@ const Workshop = (() => {
     if (key === 'fitest') return '';
     if (key === 'p1') return 'Stellung ' + (state.p1 + 1);
     if (key === 'p2') return 'Stellung ' + (state.p2 + 1);
+    if (key === 'pk') return 'Stellung ' + (state.pk + 1);
     return '';
   }
   function faultOptions() { return ['none'].concat(SC().faults).map(k => ({ key: k, label: FAULTS[k] })); }
