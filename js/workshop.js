@@ -8,7 +8,7 @@
  * - Schaltungen: 'basis' (Grundstromkreis), 'wechsel' (Wechselschaltung)
  * ==========================================================================*/
 const Workshop = (() => {
-  const COL = { L: 0x8a5a2b, N: 0x1f6fd0, PE: 0x2fa02f, PEy: 0xe9dc1f, jacket: 0x40454d, term: 0xdfeeff };
+  const COL = { L: 0x8a5a2b, N: 0x1f6fd0, PE: 0x2fa02f, PEy: 0xe9dc1f, Lsw: 0x9aa0a8, jacket: 0x40454d, term: 0xdfeeff };
   const STEPS = [0, 12, 24, 50, 120, 230, 400];
   const W = 920, H = 560;
   const FAULTS = {
@@ -25,7 +25,7 @@ const Workshop = (() => {
     active: 'none', score: 0, taskDone: false,
   };
 
-  let app, sceneRoot, dynG, hiG, probes = {}, readout, drag = null, terminals = [];
+  let app, sceneRoot, dynG, hiG, probes = {}, readout, drag = null, terminals = [], fiDot = null;
 
   // GLOBAL: hat der Kreis Spannung? (FI löst bei Körperschluss aus)
   function powerOn() {
@@ -56,7 +56,7 @@ const Workshop = (() => {
         boxG(g, 395, 108, 70, 50, 'Schalter');
         boxG(g, 720, 255, 95, 90, 'Leuchte');
         cable(g, 160, 275, 372, 300, ['L', 'N', 'PE'], [-40, 0, 40]);
-        cable(g, 430, 240, 430, 160, ['L', 'L'], [-25, 25]);
+        cable(g, 430, 240, 430, 160, ['L', 'Lsw'], [-25, 25]);
         cable(g, 492, 300, 720, 300, ['L', 'N', 'PE'], [-25, 0, 25]);
       },
       pot(id) {
@@ -216,8 +216,8 @@ const Workshop = (() => {
   function fiG(g, x, y, w) {
     g.lineStyle(1, 0x3a5474).beginFill(0x18324a).drawRoundedRect(x, y, w, 44, 6).endFill();
     labelG(g, x + w / 2, y + 15, 'FI / RCD');
-    g.lineStyle(0).beginFill(0xf5a623).drawCircle(x + w - 12, y + 31, 5).endFill();
     labelG(g, x + w / 2 - 6, y + 31, 'Prüftaste');
+    fiDot = { x: x + w - 12, y: y + 31 };   // Anzeige-LED — dynamisch in redraw()
   }
   function socketG(g, cx, cy) {
     const r = 24;
@@ -232,7 +232,7 @@ const Workshop = (() => {
     t.anchor.set(0.5); t.x = x; t.y = y; sceneRoot.addChild(t);
   }
   function line(g, ax, ay, bx, by, ader) {
-    const col = ader === 'N' ? COL.N : ader === 'PE' ? COL.PE : COL.L;
+    const col = ader === 'N' ? COL.N : ader === 'PE' ? COL.PE : ader === 'Lsw' ? COL.Lsw : COL.L;
     g.lineStyle(4, col, 1).moveTo(ax, ay).lineTo(bx, by);
     if (ader === 'PE') g.lineStyle(2, COL.PEy, 1).moveTo(ax, ay).lineTo(bx, by);
   }
@@ -244,7 +244,7 @@ const Workshop = (() => {
     g.lineStyle(22, 0x565c66, 0.25); g.moveTo(jax, jay).lineTo(jbx, jby);
     const coreOff = aders.length === 2 ? [-6, 6] : [-7, 0, 7];
     aders.forEach((ader, i) => {
-      const to = termOff[i], co = coreOff[i], base = ader === 'N' ? COL.N : ader === 'PE' ? COL.PE : COL.L;
+      const to = termOff[i], co = coreOff[i], base = ader === 'N' ? COL.N : ader === 'PE' ? COL.PE : ader === 'Lsw' ? COL.Lsw : COL.L;
       g.lineStyle(4, base, 1);
       g.moveTo(ax + nx * to, ay + ny * to).lineTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co).lineTo(bx + nx * to, by + ny * to);
       if (ader === 'PE') g.lineStyle(2, COL.PEy, 1).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co);
@@ -284,7 +284,7 @@ const Workshop = (() => {
     SC().terminals.forEach(([id, x, y, ader]) => addTerm(g, id, x, y, ader));
     (SC().sockets || []).forEach(s => {
       socketG(g, s.x, s.y);
-      const ty = s.y + 46, xs = [s.x - 22, s.x, s.x + 22], ad = ['L', 'N', 'PE'];
+      const ty = s.y + 46, xs = [s.x - 22, s.x, s.x + 22], ad = ['L', 'PE', 'N'];
       ad.forEach((ader, i) => { line(g, s.x, s.y + 24, xs[i], ty - 9, ader); addTerm(g, 'Steck' + s.id + '_' + ader, xs[i], ty, ader); });
     });
     newTask();
@@ -349,6 +349,8 @@ const Workshop = (() => {
       if (lampLit()) dynG.beginFill(0xffd34d, 0.9).drawCircle(lp.x, lp.y, 28).endFill().beginFill(0xffd34d, 0.25).drawCircle(lp.x, lp.y, 44).endFill();
       else dynG.beginFill(0x2a3a4e, 1).drawCircle(lp.x, lp.y, 24).endFill();
     }
+    // FI-Anzeige-LED: orange unter Spannung, dunkel wenn ausgelöst/aus
+    if (fiDot) { const on = powerOn(); if (on) dynG.beginFill(0xf5a623, 0.35).drawCircle(fiDot.x, fiDot.y, 11).endFill(); dynG.beginFill(on ? 0xf5a623 : 0x33465c, 1).drawCircle(fiDot.x, fiDot.y, 5).endFill(); }
     dynG.lineStyle(4, 0xe63030, 1).moveTo(readout.panel.x + 45, readout.panel.y + 78).lineTo(probes.red.x, probes.red.y);
     dynG.lineStyle(4, 0x0b1118, 1).moveTo(readout.panel.x + 235, readout.panel.y + 78).lineTo(probes.black.x, probes.black.y);
     hiG.clear();
