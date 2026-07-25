@@ -89,7 +89,7 @@
       <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;margin-bottom:4px">Bestenliste</h2>
       <p class="mode-tag" style="margin-bottom:12px">Fortschritt &amp; Erfolge</p>
       <div style="overflow-x:auto"><table class="board-table" id="board-table"><tbody></tbody></table></div>
-      <p style="color:var(--muted);font-size:12px;margin-top:10px">Aktuell lokal auf diesem Gerät gespeichert. Ohne Name wird dein Fortschritt als „Anonym" geführt. Die globale Liste (jeder sieht alle) folgt mit Firebase.</p>
+      <p style="color:var(--muted);font-size:12px;margin-top:10px"><strong id="board-source">Lokal auf diesem Gerät</strong> · ohne Name wird dein Fortschritt als „Anonym" geführt.</p>
     </section>
   </main>
 
@@ -140,20 +140,29 @@
 })();
 </script>
 
-<script src="js/board.js?v=1"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="js/board.js?v=3"></script>
 <script>
 (function(){
   var input = document.getElementById('pname');
   input.value = (localStorage.getItem('eg_vd_name') || '');
   function esc(s){ return String(s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
-  function renderBoard(){
-    var rows = Board.leaderboard();
+  function renderRows(rows){
     var tb = document.querySelector('#board-table tbody');
     var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Gesamt</th></tr>';
     if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="5" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
     tb.innerHTML = head + rows.slice(0,20).map(function(r,i){
       return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
     }).join('');
+  }
+  function renderBoard(){
+    renderRows(Board.leaderboard());          // sofort lokal anzeigen
+    Board.load(function(rows, source){        // dann global nachladen (falls aktiv)
+      renderRows(rows);
+      var si = document.getElementById('board-source');
+      if(si) si.textContent = (source === 'global') ? 'Globale Liste — jeder sieht alle' : 'Lokal auf diesem Gerät';
+    });
   }
   function save(){ Board.setName(input.value); var s=document.getElementById('name-saved'); s.textContent='gespeichert'; setTimeout(function(){ s.textContent=''; },1500); renderBoard(); }
   document.getElementById('savename').onclick = save;
