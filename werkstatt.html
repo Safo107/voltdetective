@@ -57,6 +57,10 @@
         <button class="btn tiny" data-scene="kreuz">Kreuzschaltung</button>
       </div>
       <div class="ws-group">
+        <span class="lbl">Werkzeug:</span>
+        <button class="btn tiny" id="b-thermal">Wärmebildkamera</button>
+      </div>
+      <div class="ws-group">
         <span class="lbl">Auftrag:</span>
         <span class="task-txt">Finde den versteckten Fehler.</span>
         <button class="btn tiny" id="b-newtask">Neue Aufgabe</button>
@@ -72,7 +76,7 @@
       <span><span class="swatch" style="background:#1f6fd0"></span> N (Neutralleiter, blau)</span>
       <span><span class="swatch" style="background:#2fa02f"></span> PE (Schutzleiter, grün-gelb)</span>
     </div>
-    <p class="ws-hint">Tipp: <strong>L–N</strong> an der Leuchte = 230&nbsp;V (Schalter EIN). Prüfe <strong>PE–N</strong>: normal 0&nbsp;V — zeigt es 230&nbsp;V, liegt ein <strong>Körperschluss</strong> vor. Miss dich vom Verteiler zur Leuchte durch: wo „kein Bezug" oder 0&nbsp;V beginnt, sitzt die Unterbrechung.</p>
+    <p class="ws-hint">Tipp: <strong>L–N</strong> an der Leuchte = 230&nbsp;V (Schalter EIN). Prüfe <strong>PE–N</strong>: normal 0&nbsp;V — zeigt es 230&nbsp;V, liegt ein <strong>Körperschluss</strong> vor. Miss dich vom Verteiler zur Leuchte durch: wo „kein Bezug" oder 0&nbsp;V beginnt, sitzt die Unterbrechung. Manche Fehler (heiße Klemme / Übergangswiderstand) zeigt <strong>nur die Wärmebildkamera</strong> — der Duspol misst dort normal.</p>
   </main>
 
   <div id="disclaimer-bar">
@@ -89,7 +93,7 @@
 
 <script src="assets/js/pixi.min.js"></script>
 <script src="js/board.js?v=1"></script>
-<script src="js/workshop.js?v=8"></script>
+<script src="js/workshop.js?v=9"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
     Workshop.init(document.getElementById('stage'));
@@ -139,6 +143,8 @@
     document.getElementById('b-newtask').onclick = function () {
       Workshop.newTask(); fb.textContent = ''; fb.className = 'ws-feedback'; renderBedienen();
     };
+    var bt = document.getElementById('b-thermal');
+    bt.onclick = function () { var on = Workshop.toggleThermal(); bt.classList.toggle('active', on); bt.textContent = on ? 'Wärmebild: AN' : 'Wärmebildkamera'; };
     refresh();
   });
 </script>

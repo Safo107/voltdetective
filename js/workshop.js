@@ -15,12 +15,13 @@ const Workshop = (() => {
     none: 'Kein Fehler', fuseBlown: 'Sicherung defekt', pe: 'PE unterbrochen', n: 'N unterbrochen',
     lampL: 'Kabelbruch L → Leuchte', switchDefect: 'Schaltkontakt defekt', lnSwap: 'L / N vertauscht',
     koerper: 'Körperschluss (L an PE)', steckPE: 'PE fehlt an Steckdose', korrespondierend: 'Korrespondierende unterbrochen',
+    uebergangswiderstand: 'Übergangswiderstand / lose Klemme (heiß)',
   };
   const START = { red: { x: 250, y: 520 }, black: { x: 660, y: 520 } };
 
   const state = {
     scene: 'basis', fuseOn: true, switchOn: true, fiArmed: true, fiTestTrip: false,
-    p1: 0, p2: 0, pk: 0, faults: {}, brokenTrav: 1, brokenSeg: 'A1', defSwitch: 1, steckWhich: 'A',
+    p1: 0, p2: 0, pk: 0, faults: {}, brokenTrav: 1, brokenSeg: 'A1', defSwitch: 1, steckWhich: 'A', thermalOn: false, hotTerm: null,
     active: 'none', score: 0, taskDone: false,
   };
 
@@ -36,8 +37,8 @@ const Workshop = (() => {
    * ====================================================================*/
   const SCENES = {
     basis: {
-      faults: ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE'],
-      pool:   ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE', 'pe', 'n', 'none'],
+      faults: ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE', 'uebergangswiderstand'],
+      pool:   ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE', 'uebergangswiderstand', 'pe', 'n', 'none'],
       controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'fi', label: 'FI' }, { key: 'fitest', label: 'Prüftaste' }, { key: 'switch', label: 'Schalter' }],
       lamp: { L: 'Lampe_L', N: 'Lampe_N', x: 767, y: 300 },
       sockets: [{ id: 'A', x: 585, y: 60 }, { id: 'B', x: 705, y: 60 }],
@@ -78,8 +79,8 @@ const Workshop = (() => {
     },
 
     wechsel: {
-      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE'],
-      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'none'],
+      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'uebergangswiderstand'],
+      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'uebergangswiderstand', 'none'],
       controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'fi', label: 'FI' }, { key: 'fitest', label: 'Prüftaste' }, { key: 'p1', label: 'Schalter 1' }, { key: 'p2', label: 'Schalter 2' }],
       lamp: { L: 'W_LampeL', N: 'W_LampeN', x: 810, y: 300 },
       sockets: [{ id: 'A', x: 300, y: 55 }, { id: 'B', x: 470, y: 55 }],
@@ -133,8 +134,8 @@ const Workshop = (() => {
     },
 
     kreuz: {
-      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE'],
-      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'none'],
+      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'uebergangswiderstand'],
+      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'steckPE', 'uebergangswiderstand', 'none'],
       controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'fi', label: 'FI' }, { key: 'fitest', label: 'Prüftaste' }, { key: 'p1', label: 'Schalter 1' }, { key: 'pk', label: 'Kreuzschalter' }, { key: 'p2', label: 'Schalter 2' }],
       lamp: { L: 'K_LampeL', N: 'K_LampeN', x: 790, y: 305 },
       sockets: [{ id: 'A', x: 320, y: 55 }, { id: 'B', x: 520, y: 55 }],
@@ -335,9 +336,19 @@ const Workshop = (() => {
    * ====================================================================*/
   function redraw() {
     dynG.clear();
-    const lp = SC().lamp;
-    if (lampLit()) dynG.beginFill(0xffd34d, 0.9).drawCircle(lp.x, lp.y, 28).endFill().beginFill(0xffd34d, 0.25).drawCircle(lp.x, lp.y, 44).endFill();
-    else dynG.beginFill(0x2a3a4e, 1).drawCircle(lp.x, lp.y, 24).endFill();
+    if (state.thermalOn) {
+      // Wärmebildkamera-Ansicht: Szene abgedunkelt, Hitze als Glut sichtbar
+      dynG.beginFill(0x00081a, 0.66).drawRect(0, 0, W, H).endFill();
+      terminals.forEach(t => {
+        const hot = state.hotTerm === t.id && state.faults.uebergangswiderstand;
+        if (hot) { dynG.beginFill(0xffdd33, 0.30).drawCircle(t.x, t.y, 42).endFill(); dynG.beginFill(0xff5a1e, 0.75).drawCircle(t.x, t.y, 24).endFill(); dynG.beginFill(0xffffff, 0.7).drawCircle(t.x, t.y, 9).endFill(); }
+        else dynG.beginFill(0x1c5fb0, 0.40).drawCircle(t.x, t.y, 11).endFill();
+      });
+    } else {
+      const lp = SC().lamp;
+      if (lampLit()) dynG.beginFill(0xffd34d, 0.9).drawCircle(lp.x, lp.y, 28).endFill().beginFill(0xffd34d, 0.25).drawCircle(lp.x, lp.y, 44).endFill();
+      else dynG.beginFill(0x2a3a4e, 1).drawCircle(lp.x, lp.y, 24).endFill();
+    }
     dynG.lineStyle(4, 0xe63030, 1).moveTo(readout.panel.x + 45, readout.panel.y + 78).lineTo(probes.red.x, probes.red.y);
     dynG.lineStyle(4, 0x0b1118, 1).moveTo(readout.panel.x + 235, readout.panel.y + 78).lineTo(probes.black.x, probes.black.y);
     hiG.clear();
@@ -361,6 +372,7 @@ const Workshop = (() => {
     state.fuseOn = true; state.switchOn = true; state.fiArmed = true; state.fiTestTrip = false; state.p1 = 0; state.p2 = 0; state.pk = 0;
     state.brokenTrav = Math.random() < 0.5 ? 1 : 2; state.brokenSeg = ['A1', 'A2', 'B1', 'B2'][Math.floor(Math.random() * 4)]; state.defSwitch = 1 + Math.floor(Math.random() * 3);
     const socks = (SC().sockets || []); state.steckWhich = socks.length ? socks[Math.floor(Math.random() * socks.length)].id : 'A';
+    if (active === 'uebergangswiderstand') { const cur = terminals.filter(t => t.ader === 'L' || t.ader === 'N'); state.hotTerm = cur.length ? cur[Math.floor(Math.random() * cur.length)].id : null; } else state.hotTerm = null;
     probes.red.x = START.red.x; probes.red.y = START.red.y; probes.red.snap = null;
     probes.black.x = START.black.x; probes.black.y = START.black.y; probes.black.snap = null;
     redraw(); return active;
@@ -392,9 +404,10 @@ const Workshop = (() => {
   }
   function faultOptions() { return ['none'].concat(SC().faults).map(k => ({ key: k, label: FAULTS[k] })); }
   function controls() { return SC().controls; }
+  function toggleThermal() { state.thermalOn = !state.thermalOn; redraw(); return state.thermalOn; }
   function setScene(name) { if (SCENES[name]) loadScene(name); }
   function setState(patch) { Object.assign(state, patch); if (patch.faults) Object.assign(state.faults, patch.faults); redraw(); }
 
-  const api = { init, setScene, setState, state, measure, pot, lampLit, newTask, diagnose, toggle, opState, faultOptions, controls, FAULTS, getScore: () => state.score, probeSnaps: () => ({ red: probes.red && probes.red.snap, black: probes.black && probes.black.snap }) };
+  const api = { init, setScene, setState, state, measure, pot, lampLit, newTask, diagnose, toggle, toggleThermal, opState, faultOptions, controls, FAULTS, getScore: () => state.score, probeSnaps: () => ({ red: probes.red && probes.red.snap, black: probes.black && probes.black.snap }) };
   return api;
 })();
