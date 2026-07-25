@@ -105,7 +105,15 @@ const Workshop = (() => {
     app.stage.addChild(d); label(430, 200, 'Abzweigdose');
     box(395, 78, 70, 54, 'Schalter');
     box(720, 225, 95, 95, 'Leuchte');
-    box(630, 40, 80, 62, 'Steckdose');
+    // Steckdose als Schuko-Symbol (erkennbar)
+    const sk = new PIXI.Graphics();
+    const cx = 672, cy = 72, r = 26;
+    sk.lineStyle(2, 0x2b4763).beginFill(0x1a2c42).drawRoundedRect(cx - r - 8, cy - r - 8, (r + 8) * 2, (r + 8) * 2, 10).endFill();
+    sk.lineStyle(2, 0x3a5474).beginFill(0x0f2035).drawCircle(cx, cy, r).endFill();
+    sk.lineStyle(4, 0x9fb4cc, 1).moveTo(cx - 15, cy - r + 3).lineTo(cx + 15, cy - r + 3).moveTo(cx - 15, cy + r - 3).lineTo(cx + 15, cy + r - 3);
+    sk.lineStyle(0).beginFill(0x0a1420).drawCircle(cx - 10, cy, 4).drawCircle(cx + 10, cy, 4).endFill();
+    app.stage.addChild(sk);
+    label(cx, cy - r - 18, 'Steckdose');
   }
 
   function buildTerminals() {
