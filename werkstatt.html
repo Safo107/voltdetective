@@ -51,30 +51,20 @@
 
     <div class="ws-controls">
       <div class="ws-group">
+        <span class="lbl">Schaltung:</span>
+        <button class="btn tiny active" data-scene="basis">Grundschaltung</button>
+        <button class="btn tiny" data-scene="wechsel">Wechselschaltung</button>
+      </div>
+      <div class="ws-group">
         <span class="lbl">Auftrag:</span>
         <span class="task-txt">Finde den versteckten Fehler.</span>
         <button class="btn tiny" id="b-newtask">Neue Aufgabe</button>
         <span class="lbl">Gelöst: <strong id="score">0</strong></span>
       </div>
-      <div class="ws-group">
-        <span class="lbl">Bedienen:</span>
-        <button class="btn tiny" id="b-fuse">Sicherung: EIN</button>
-        <button class="btn tiny" id="b-switch">Schalter: EIN</button>
-      </div>
+      <div class="ws-group" id="ws-bedienen"><span class="lbl">Bedienen:</span></div>
     </div>
-    <div class="ws-group" style="margin-bottom:12px">
-      <span class="lbl">Diagnose:</span>
-      <button class="btn tiny" data-dx="none">Kein Fehler</button>
-      <button class="btn tiny" data-dx="fuseBlown">Sicherung defekt</button>
-      <button class="btn tiny" data-dx="pe">PE unterbrochen</button>
-      <button class="btn tiny" data-dx="n">N unterbrochen</button>
-      <button class="btn tiny" data-dx="lampL">Kabelbruch L→Leuchte</button>
-      <button class="btn tiny" data-dx="switchDefect">Schaltkontakt defekt</button>
-      <button class="btn tiny" data-dx="lnSwap">L/N vertauscht</button>
-      <button class="btn tiny" data-dx="koerper">Körperschluss (L→PE)</button>
-      <button class="btn tiny" data-dx="steckPE">PE fehlt an Steckdose</button>
-      <span id="ws-feedback" class="ws-feedback"></span>
-    </div>
+    <div class="ws-group" id="ws-diagnose" style="margin-bottom:8px"><span class="lbl">Diagnose:</span></div>
+    <div id="ws-feedback" class="ws-feedback" style="margin:0 0 12px 4px"></div>
 
     <div class="legend card" style="padding:12px 14px">
       <span><span class="swatch" style="background:#8a5a2b"></span> L (Außenleiter, braun)</span>
@@ -97,30 +87,51 @@
 </div></div>
 
 <script src="assets/js/pixi.min.js"></script>
-<script src="js/workshop.js?v=2"></script>
+<script src="js/workshop.js?v=3"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
     Workshop.init(document.getElementById('stage'));
     window.WS = Workshop;
-    var bf = document.getElementById('b-fuse'), bs = document.getElementById('b-switch');
     var fb = document.getElementById('ws-feedback');
-    function syncToggles() {
-      bf.textContent = 'Sicherung: ' + (Workshop.state.fuseOn ? 'EIN' : 'AUS');
-      bs.textContent = 'Schalter: ' + (Workshop.state.switchOn ? 'EIN' : 'AUS');
-      bf.classList.toggle('active', !Workshop.state.fuseOn);
-      bs.classList.toggle('active', !Workshop.state.switchOn);
+
+    function renderBedienen() {
+      var bed = document.getElementById('ws-bedienen');
+      bed.innerHTML = '<span class="lbl">Bedienen:</span>';
+      Workshop.controls().forEach(function (c) {
+        var b = document.createElement('button'); b.className = 'btn tiny';
+        b.textContent = c.label + ': ' + Workshop.opState(c.key);
+        b.onclick = function () { Workshop.toggle(c.key); b.textContent = c.label + ': ' + Workshop.opState(c.key); };
+        bed.appendChild(b);
+      });
     }
-    bf.onclick = function () { Workshop.setState({ fuseOn: !Workshop.state.fuseOn }); syncToggles(); };
-    bs.onclick = function () { Workshop.setState({ switchOn: !Workshop.state.switchOn }); syncToggles(); };
-    document.getElementById('b-newtask').onclick = function () { Workshop.newTask(); fb.textContent = ''; fb.className = 'ws-feedback'; syncToggles(); };
-    document.querySelectorAll('[data-dx]').forEach(function (b) {
+    function renderDiagnose() {
+      var dia = document.getElementById('ws-diagnose');
+      dia.innerHTML = '<span class="lbl">Diagnose:</span>';
+      Workshop.faultOptions().forEach(function (o) {
+        var b = document.createElement('button'); b.className = 'btn tiny';
+        b.textContent = o.label;
+        b.onclick = function () {
+          var r = Workshop.diagnose(o.key);
+          if (r.correct) { fb.textContent = 'Richtig — ' + r.label + '. Gelöst! Klick „Neue Aufgabe".'; fb.className = 'ws-feedback ok'; document.getElementById('score').textContent = Workshop.getScore(); }
+          else { fb.textContent = 'Nicht ganz — miss weiter mit dem Duspol.'; fb.className = 'ws-feedback bad'; }
+        };
+        dia.appendChild(b);
+      });
+    }
+    function refresh() { renderBedienen(); renderDiagnose(); }
+
+    document.querySelectorAll('[data-scene]').forEach(function (b) {
       b.onclick = function () {
-        var r = Workshop.diagnose(b.dataset.dx);
-        if (r.correct) { fb.textContent = 'Richtig — ' + r.label + '. Aufgabe gelöst! Klick „Neue Aufgabe".'; fb.className = 'ws-feedback ok'; document.getElementById('score').textContent = Workshop.getScore(); }
-        else { fb.textContent = 'Nicht ganz — miss weiter mit dem Duspol und prüf die Adern.'; fb.className = 'ws-feedback bad'; }
+        document.querySelectorAll('[data-scene]').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        Workshop.setScene(b.dataset.scene);
+        fb.textContent = ''; fb.className = 'ws-feedback'; refresh();
       };
     });
-    syncToggles();
+    document.getElementById('b-newtask').onclick = function () {
+      Workshop.newTask(); fb.textContent = ''; fb.className = 'ws-feedback'; renderBedienen();
+    };
+    refresh();
   });
 </script>
 <script src="assets/js/particles.js"></script>
