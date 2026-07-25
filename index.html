@@ -77,6 +77,18 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
       </a>
+
+      <a class="mode-card" href="messprotokoll.html">
+        <div class="mode-ic" style="background:rgba(61,220,132,.12);border:1px solid rgba(61,220,132,.3)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+        </div>
+        <div class="mode-tag">E-Check</div>
+        <h2>Messprotokoll</h2>
+        <p>R ISO, R PE, Schleifenimpedanz, Netzimpedanz, RCD-Auslösung &amp; Drehfeld messen und nach Grenzwerten (DIN VDE 0100-600) bewerten — mit Prüfprotokoll.</p>
+        <span class="mode-go">Prüfung starten
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </span>
+      </a>
     </div>
 
     <section class="board-wrap card">
@@ -150,10 +162,10 @@
   function esc(s){ return String(s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
   function renderRows(rows){
     var tb = document.querySelector('#board-table tbody');
-    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Gesamt</th></tr>';
-    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="5" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
+    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Protokoll</th><th class="num">Gesamt</th></tr>';
+    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="6" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
     tb.innerHTML = head + rows.slice(0,20).map(function(r,i){
-      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
+      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num">'+r.protokoll+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
     }).join('');
   }
   function renderBoard(){

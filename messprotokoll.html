@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Messprotokoll (E-Check) – VoltDetective</title>
+<meta name="description" content="Messprotokoll-Modus: R ISO, R PE, Schleifenimpedanz, RCD-Auslösung u.v.m. messen und nach Grenzwerten bewerten. Von ElektroGenius.">
+<link rel="canonical" href="https://spiel.elektrogenius.de/messprotokoll.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  .mp-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0 16px; }
+  .mp-pruefling { font-size: 14px; color: var(--text); background: var(--card-bg2); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+  .mp-score { color: var(--muted); font-size: 14px; }
+  .mp-score strong { color: var(--cyan); }
+  .mtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .mtable th, .mtable td { text-align: left; padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .mtable th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .mtable td.lim { color: var(--muted); font-family: ui-monospace, monospace; white-space: nowrap; }
+  .mtable td.mw { font-family: ui-monospace, monospace; }
+  .mtable .ok { color: var(--ok); font-weight: 700; }
+  .mtable .no { color: var(--no); font-weight: 700; }
+  .verdict { margin-top: 16px; }
+  .fb { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 8px; font-size: 15px; }
+  .ok-fb { background: rgba(61,220,132,.12); border: 1px solid rgba(61,220,132,.4); }
+  .bad-fb { background: rgba(255,92,92,.12); border: 1px solid rgba(255,92,92,.4); }
+</style>
+</head>
+<body>
+<canvas id="eg-particles" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+<div style="position:relative;z-index:1">
+<div id="app">
+
+  <header id="header">
+    <div class="logo-circle">EG</div>
+    <div id="header-title">Messprotokoll — E-Check</div>
+    <div class="header-actions"><a class="btn tiny ghost" href="index.html">← Menü</a></div>
+  </header>
+
+  <main id="content">
+    <div class="intro">
+      <h1 class="intro-title">Messprotokoll (E-Check)</h1>
+      <p class="intro-sub">Miss jeden Wert der Erstprüfung nach DIN VDE 0100-600 und bewerte ihn: <strong>i.O.</strong> wenn er im Grenzwert liegt, sonst <strong>n.i.O.</strong> Am Ende steht dein Prüfprotokoll.</p>
+    </div>
+
+    <div class="mp-head">
+      <span class="mp-pruefling" id="pruefling">—</span>
+      <button class="btn tiny primary" id="b-new">Neue Prüfung</button>
+      <span class="mp-score">Richtig bewertet: <strong id="score">0</strong> / <span id="total">0</span></span>
+    </div>
+
+    <div class="card" style="padding:6px 14px;overflow-x:auto">
+      <table class="mtable" id="mtable">
+        <thead><tr><th>Prüfschritt</th><th>Grenzwert</th><th>Messwert</th><th>Bewertung</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </main>
+
+  <div id="disclaimer-bar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Die Simulation dient ausschließlich zu Lern- und Übungszwecken und gibt unsere persönliche Meinung als ausgebildete Elektrofachkraft wieder. Kein Ersatz für normgerechte Fachplanung.
+  </div>
+
+  <footer id="footer">
+    VoltDetective by <a href="https://elektrogenius.de" target="_blank" rel="noopener">elektrogenius.de</a>
+    &nbsp;·&nbsp; <a href="impressum.html">Impressum</a> &nbsp;·&nbsp; <a href="datenschutz.html">Datenschutz</a>
+  </footer>
+
+</div></div>
+
+<div id="cookie-banner">
+  <div id="cookie-text">Wir nutzen Google Analytics zur Verbesserung unserer App. Einverstanden?</div>
+  <div id="cookie-actions"><button id="cookie-accept">Akzeptieren</button><button id="cookie-reject">Ablehnen</button></div>
+</div>
+<script>
+(function(){
+  var consent = localStorage.getItem('eg_analytics');
+  function loadGA(){ if(window._gaLoaded) return; window._gaLoaded=true; var s=document.createElement('script'); s.src='https://www.googletagmanager.com/gtag/js?id=G-9EYXMP1S7Y'; s.async=true; document.head.appendChild(s); window.dataLayer=window.dataLayer||[]; function gtag(){dataLayer.push(arguments);} window.gtag=gtag; gtag('js',new Date()); gtag('config','G-9EYXMP1S7Y'); }
+  if(consent==='1') loadGA();
+  var banner=document.getElementById('cookie-banner'); if(consent!==null){ if(banner) banner.remove(); }
+  var a=document.getElementById('cookie-accept'), r=document.getElementById('cookie-reject');
+  if(a) a.addEventListener('click',function(){ localStorage.setItem('eg_analytics','1'); if(banner) banner.remove(); loadGA(); });
+  if(r) r.addEventListener('click',function(){ localStorage.setItem('eg_analytics','0'); if(banner) banner.remove(); });
+})();
+</script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script src="js/board.js?v=3"></script>
+<script src="js/protokoll.js?v=1"></script>
+<script>
+(function(){
+  var round, done, correct, units = {};
+  function start(){
+    round = Protokoll.newRound();
+    done = 0; correct = 0;
+    units = {}; round.mess.forEach(function(m){ units[m.key] = m.unit; });
+    document.getElementById('pruefling').textContent = round.pruefling;
+    document.getElementById('score').textContent = '0';
+    document.getElementById('total').textContent = Protokoll.count();
+    document.getElementById('verdict').innerHTML = '';
+    renderTable();
+  }
+  function renderTable(){
+    var tb = document.querySelector('#mtable tbody');
+    tb.innerHTML = round.mess.map(function(m){
+      return '<tr data-key="'+m.key+'"><td>'+m.name+'</td><td class="lim">'+m.limit+'</td>'
+        + '<td class="mw"><button class="btn tiny" data-act="measure">Messen</button></td>'
+        + '<td class="bw">—</td></tr>';
+    }).join('');
+    tb.querySelectorAll('[data-act="measure"]').forEach(function(b){
+      b.onclick = function(){
+        var tr = b.closest('tr'), key = tr.dataset.key, v = Protokoll.measure(key), u = units[key];
+        tr.querySelector('.mw').innerHTML = '<strong>'+v+(u?(' '+u):'')+'</strong>';
+        tr.querySelector('.bw').innerHTML = '<button class="btn tiny accent" data-j="1">i.O.</button> <button class="btn tiny" data-j="0">n.i.O.</button>';
+        wireJudge(tr, key);
+      };
+    });
+  }
+  function wireJudge(tr, key){
+    tr.querySelectorAll('[data-j]').forEach(function(b){
+      b.onclick = function(){
+        var claim = b.dataset.j === '1', truth = Protokoll.evaluate(key), ok = (claim === truth);
+        tr.querySelector('.bw').innerHTML = '<span class="'+(truth?'ok':'no')+'">'+(truth?'i.O.':'n.i.O.')+'</span>'
+          + (ok ? ' <span class="muted">(richtig)</span>' : ' <span class="no">(falsch bewertet)</span>');
+        done++; if(ok) correct++;
+        document.getElementById('score').textContent = correct;
+        if(done === Protokoll.count()) finish();
+      };
+    });
+  }
+  function finish(){
+    var v = Protokoll.overall();
+    document.getElementById('verdict').innerHTML = '<div class="fb '+(v?'ok-fb':'bad-fb')+'">Gesamtergebnis: <strong>'
+      + (v?'Anlage in Ordnung':'Mängel festgestellt') + '</strong> &nbsp;·&nbsp; richtig bewertet: <strong>'+correct+' / '+Protokoll.count()+'</strong></div>';
+    if (typeof Board !== 'undefined') Board.add('protokoll');
+  }
+  document.getElementById('b-new').onclick = start;
+  start();
+})();
+</script>
+<script src="assets/js/particles.js"></script>
+<script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
+</body>
+</html>
