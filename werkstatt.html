@@ -24,6 +24,10 @@
   .swatch { width: 16px; height: 6px; border-radius: 3px; display: inline-block; }
   .ws-hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
   .beta { font-size: 12px; font-weight: 900; color: var(--navy); background: var(--cyan); border-radius: 6px; padding: 2px 8px; vertical-align: middle; letter-spacing: .05em; }
+  .task-txt { font-size: 13px; color: var(--text); }
+  .ws-feedback { font-size: 13px; margin-left: 6px; }
+  .ws-feedback.ok { color: var(--ok); font-weight: 700; }
+  .ws-feedback.bad { color: var(--no); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -40,24 +44,32 @@
   <main id="content">
     <div class="intro">
       <h1 class="intro-title">Werkstatt — Duspol &amp; Verdrahtung <span class="beta">BETA</span></h1>
-      <p class="intro-sub">Zieh die beiden Prüfspitzen des Duspols mit der Maus an zwei Klemmen — die gemessene Spannung erscheint live am Gerät. So siehst du, wo Spannung anliegt und wo nicht.</p>
+      <p class="intro-sub">Ein Fehler ist im Kreis <strong>versteckt</strong>. Zieh die beiden Prüfspitzen des Duspols (rot/schwarz) mit der Maus an die Klemmen, miss dich systematisch durch — und stelle dann die Diagnose.</p>
     </div>
 
     <div id="stage" class="card"></div>
 
     <div class="ws-controls">
       <div class="ws-group">
-        <span class="lbl">Schalten:</span>
+        <span class="lbl">Auftrag:</span>
+        <span class="task-txt">Finde den versteckten Fehler.</span>
+        <button class="btn tiny" id="b-newtask">Neue Aufgabe</button>
+        <span class="lbl">Gelöst: <strong id="score">0</strong></span>
+      </div>
+      <div class="ws-group">
+        <span class="lbl">Bedienen:</span>
         <button class="btn tiny" id="b-fuse">Sicherung: EIN</button>
         <button class="btn tiny" id="b-switch">Schalter: EIN</button>
       </div>
-      <div class="ws-group">
-        <span class="lbl">Fehler:</span>
-        <button class="btn tiny active" data-fault="none">Alles OK</button>
-        <button class="btn tiny" data-fault="pe">PE unterbrochen</button>
-        <button class="btn tiny" data-fault="n">N-Bruch</button>
-        <button class="btn tiny" data-fault="lampL">Kabelbruch L→Leuchte</button>
-      </div>
+    </div>
+    <div class="ws-group" style="margin-bottom:12px">
+      <span class="lbl">Diagnose:</span>
+      <button class="btn tiny" data-dx="none">Kein Fehler</button>
+      <button class="btn tiny" data-dx="pe">PE unterbrochen</button>
+      <button class="btn tiny" data-dx="n">N unterbrochen</button>
+      <button class="btn tiny" data-dx="lampL">Kabelbruch L→Leuchte</button>
+      <button class="btn tiny" data-dx="switchDefect">Schaltkontakt defekt</button>
+      <span id="ws-feedback" class="ws-feedback"></span>
     </div>
 
     <div class="legend card" style="padding:12px 14px">
@@ -84,20 +96,27 @@
 <script src="js/workshop.js"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
-    var api = Workshop.init(document.getElementById('stage'));
-    window.WS = api;
-
+    Workshop.init(document.getElementById('stage'));
+    window.WS = Workshop;
     var bf = document.getElementById('b-fuse'), bs = document.getElementById('b-switch');
-    bf.onclick = function () { Workshop.setState({ fuseOn: !Workshop.state.fuseOn }); bf.textContent = 'Sicherung: ' + (Workshop.state.fuseOn ? 'EIN' : 'AUS'); bf.classList.toggle('active', !Workshop.state.fuseOn); };
-    bs.onclick = function () { Workshop.setState({ switchOn: !Workshop.state.switchOn }); bs.textContent = 'Schalter: ' + (Workshop.state.switchOn ? 'EIN' : 'AUS'); bs.classList.toggle('active', !Workshop.state.switchOn); };
-
-    document.querySelectorAll('[data-fault]').forEach(function (b) {
+    var fb = document.getElementById('ws-feedback');
+    function syncToggles() {
+      bf.textContent = 'Sicherung: ' + (Workshop.state.fuseOn ? 'EIN' : 'AUS');
+      bs.textContent = 'Schalter: ' + (Workshop.state.switchOn ? 'EIN' : 'AUS');
+      bf.classList.toggle('active', !Workshop.state.fuseOn);
+      bs.classList.toggle('active', !Workshop.state.switchOn);
+    }
+    bf.onclick = function () { Workshop.setState({ fuseOn: !Workshop.state.fuseOn }); syncToggles(); };
+    bs.onclick = function () { Workshop.setState({ switchOn: !Workshop.state.switchOn }); syncToggles(); };
+    document.getElementById('b-newtask').onclick = function () { Workshop.newTask(); fb.textContent = ''; fb.className = 'ws-feedback'; syncToggles(); };
+    document.querySelectorAll('[data-dx]').forEach(function (b) {
       b.onclick = function () {
-        document.querySelectorAll('[data-fault]').forEach(function (x) { x.classList.remove('active'); });
-        b.classList.add('active');
-        Workshop.setState({ faults: { pe: b.dataset.fault === 'pe', n: b.dataset.fault === 'n', lampL: b.dataset.fault === 'lampL' } });
+        var r = Workshop.diagnose(b.dataset.dx);
+        if (r.correct) { fb.textContent = 'Richtig — ' + r.label + '. Aufgabe gelöst! Klick „Neue Aufgabe".'; fb.className = 'ws-feedback ok'; document.getElementById('score').textContent = Workshop.getScore(); }
+        else { fb.textContent = 'Nicht ganz — miss weiter mit dem Duspol und prüf die Adern.'; fb.className = 'ws-feedback bad'; }
       };
     });
+    syncToggles();
   });
 </script>
 <script src="assets/js/particles.js"></script>
