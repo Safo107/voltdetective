@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>VoltDetective — Werkstatt (Duspol) · ElektroGenius</title>
+<meta name="description" content="Interaktive Werkstatt: Verdrahtung sichtbar machen und mit dem Duspol Spannungen messen. Von ElektroGenius.">
+<link rel="canonical" href="https://spiel.elektrogenius.de/werkstatt.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  #stage { display: flex; justify-content: center; padding: 8px; }
+  #stage canvas { border-radius: 12px; }
+  .ws-controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; align-items: center; }
+  .ws-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 8px 10px; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 10px; }
+  .ws-group > span.lbl { font-size: 12px; color: var(--muted); margin-right: 4px; }
+  .btn.active { border-color: var(--cyan); background: rgba(0,198,255,0.14); color: var(--text); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 16px; height: 6px; border-radius: 3px; display: inline-block; }
+  .ws-hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .beta { font-size: 12px; font-weight: 900; color: var(--navy); background: var(--cyan); border-radius: 6px; padding: 2px 8px; vertical-align: middle; letter-spacing: .05em; }
+</style>
+</head>
+<body>
+<canvas id="eg-particles" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+<div style="position:relative;z-index:1">
+<div id="app">
+
+  <header id="header">
+    <div class="logo-circle">EG</div>
+    <div id="header-title">VoltDetective — Werkstatt</div>
+    <div class="header-actions"><a class="btn tiny ghost" href="index.html">← Spiel</a></div>
+  </header>
+
+  <main id="content">
+    <div class="intro">
+      <h1 class="intro-title">Werkstatt — Duspol &amp; Verdrahtung <span class="beta">BETA</span></h1>
+      <p class="intro-sub">Zieh die beiden Prüfspitzen des Duspols mit der Maus an zwei Klemmen — die gemessene Spannung erscheint live am Gerät. So siehst du, wo Spannung anliegt und wo nicht.</p>
+    </div>
+
+    <div id="stage" class="card"></div>
+
+    <div class="ws-controls">
+      <div class="ws-group">
+        <span class="lbl">Schalten:</span>
+        <button class="btn tiny" id="b-fuse">Sicherung: EIN</button>
+        <button class="btn tiny" id="b-switch">Schalter: EIN</button>
+      </div>
+      <div class="ws-group">
+        <span class="lbl">Fehler:</span>
+        <button class="btn tiny active" data-fault="none">Alles OK</button>
+        <button class="btn tiny" data-fault="pe">PE unterbrochen</button>
+        <button class="btn tiny" data-fault="n">N-Bruch</button>
+        <button class="btn tiny" data-fault="lampL">Kabelbruch L→Leuchte</button>
+      </div>
+    </div>
+
+    <div class="legend card" style="padding:12px 14px">
+      <span><span class="swatch" style="background:#8a5a2b"></span> L (Außenleiter, braun)</span>
+      <span><span class="swatch" style="background:#1f6fd0"></span> N (Neutralleiter, blau)</span>
+      <span><span class="swatch" style="background:#2fa02f"></span> PE (Schutzleiter, grün-gelb)</span>
+    </div>
+    <p class="ws-hint">Tipp: Miss <strong>L–N</strong> an der Leuchte (230&nbsp;V bei Schalter EIN), prüfe mit <strong>PE–N</strong> den Schutzleiter, und beobachte, wie „kein Bezug" erscheint, sobald eine Ader unterbrochen ist.</p>
+  </main>
+
+  <div id="disclaimer-bar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Die Simulation dient ausschließlich zu Lern- und Übungszwecken und gibt unsere persönliche Meinung als ausgebildete Elektrofachkraft wieder. Kein Ersatz für normgerechte Fachplanung.
+  </div>
+
+  <footer id="footer">
+    VoltDetective by <a href="https://elektrogenius.de" target="_blank" rel="noopener">elektrogenius.de</a>
+    &nbsp;·&nbsp; <a href="impressum.html">Impressum</a> &nbsp;·&nbsp; <a href="datenschutz.html">Datenschutz</a>
+  </footer>
+
+</div></div>
+
+<script src="assets/js/pixi.min.js"></script>
+<script src="js/workshop.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var api = Workshop.init(document.getElementById('stage'));
+    window.WS = api;
+
+    var bf = document.getElementById('b-fuse'), bs = document.getElementById('b-switch');
+    bf.onclick = function () { Workshop.setState({ fuseOn: !Workshop.state.fuseOn }); bf.textContent = 'Sicherung: ' + (Workshop.state.fuseOn ? 'EIN' : 'AUS'); bf.classList.toggle('active', !Workshop.state.fuseOn); };
+    bs.onclick = function () { Workshop.setState({ switchOn: !Workshop.state.switchOn }); bs.textContent = 'Schalter: ' + (Workshop.state.switchOn ? 'EIN' : 'AUS'); bs.classList.toggle('active', !Workshop.state.switchOn); };
+
+    document.querySelectorAll('[data-fault]').forEach(function (b) {
+      b.onclick = function () {
+        document.querySelectorAll('[data-fault]').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        Workshop.setState({ faults: { pe: b.dataset.fault === 'pe', n: b.dataset.fault === 'n', lampL: b.dataset.fault === 'lampL' } });
+      };
+    });
+  });
+</script>
+<script src="assets/js/particles.js"></script>
+<script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
+</body>
+</html>
