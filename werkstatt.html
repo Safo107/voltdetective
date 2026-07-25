@@ -87,7 +87,7 @@
 </div></div>
 
 <script src="assets/js/pixi.min.js"></script>
-<script src="js/workshop.js?v=4"></script>
+<script src="js/workshop.js?v=5"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
     Workshop.init(document.getElementById('stage'));
@@ -101,7 +101,12 @@
         var b = document.createElement('button'); b.className = 'btn tiny';
         var st = Workshop.opState(c.key);
         b.textContent = st ? (c.label + ': ' + st) : c.label;
-        b.onclick = function () { Workshop.toggle(c.key); renderBedienen(); };
+        if (st === 'AUSGELÖST') b.classList.add('active');
+        b.onclick = function () {
+          Workshop.toggle(c.key);
+          if (c.key === 'fitest') { fb.textContent = 'Prüftaste gedrückt → FI ausgelöst. Der FI funktioniert! Mit „FI" wieder scharfschalten.'; fb.className = 'ws-feedback ok'; }
+          renderBedienen();
+        };
         bed.appendChild(b);
       });
     }
