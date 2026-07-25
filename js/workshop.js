@@ -1,43 +1,51 @@
 /* ============================================================================
- * VoltDetective — Werkstatt (Phase 1): PixiJS-Szene
+ * VoltDetective — Werkstatt (Phase 1+): PixiJS-Szene
  * ----------------------------------------------------------------------------
  * - Mantelkabel (NYM) mit sichtbaren Adern L/N/PE, an den Klemmen einzeln messbar
- * - DUSPOL mit zwei Prüfspitzen, die man mit der Maus an die Klemmen zieht
- *   (rot -> z.B. L, schwarz -> N); Spannung erscheint live am Gerät
- * - VERSTECKTE Fehler-Aufgabe: Fehler wird zugeteilt, Spieler muss ihn finden
+ * - DUSPOL mit zwei Prüfspitzen (native Drag, Maus + Touch), Live-Spannung
+ * - VERSTECKTE Fehler-Aufgabe: zufälliger Fehler, per Messen finden + diagnostizieren
  * ==========================================================================*/
 const Workshop = (() => {
   const COL = { L: 0x8a5a2b, N: 0x1f6fd0, PE: 0x2fa02f, PEy: 0xe9dc1f, jacket: 0x40454d, term: 0xdfeeff };
   const STEPS = [0, 12, 24, 50, 120, 230, 400];
+  const W = 920, H = 560;
   const FAULTS = {
     none:         'Kein Fehler',
+    fuseBlown:    'Sicherung defekt',
     pe:           'PE unterbrochen',
     n:            'N unterbrochen',
     lampL:        'Kabelbruch L → Leuchte',
     switchDefect: 'Schaltkontakt defekt',
+    lnSwap:       'L / N vertauscht',
+    koerper:      'Körperschluss (L an PE)',
   };
+  const START = { red: { x: 250, y: 520 }, black: { x: 660, y: 520 } };
 
   const state = {
     fuseOn: true, switchOn: true,
-    faults: { pe: false, n: false, lampL: false, switchDefect: false },
+    faults: { fuseBlown: false, pe: false, n: false, lampL: false, switchDefect: false, lnSwap: false, koerper: false },
     active: 'none', score: 0, taskDone: false,
   };
 
   let app, terminals = [], probes = {}, readout, lampGlow, sceneG, hiG, drag = null;
 
-  /* --- Potenziale (V) aus dem Zustand; null = potenzialfrei -------------*/
+  /* --- Potenziale (V); null = potenzialfrei -----------------------------*/
   function pot(id) {
-    const Lsrc = state.fuseOn ? 230 : 0;
-    const Lsw  = (state.fuseOn && state.switchOn && !state.faults.switchDefect) ? 230 : 0;
+    const on   = state.fuseOn && !state.faults.fuseBlown;
+    const Lsrc = on ? 230 : 0;
+    const Lsw  = (on && state.switchOn && !state.faults.switchDefect) ? 230 : 0;
+    const N    = state.faults.n ? null : 0;
+    const PE   = state.faults.koerper ? 230 : (state.faults.pe ? null : 0);
     switch (id) {
-      case 'V_L': case 'D_L': case 'S_in':      return Lsrc;
-      case 'S_out': case 'D_Lsw':               return Lsw;
-      case 'Lampe_L':                           return state.faults.lampL ? null : Lsw;
-      case 'V_N':                               return 0;
-      case 'D_N': case 'Lampe_N':               return state.faults.n ? null : 0;
-      case 'V_PE':                              return 0;
-      case 'D_PE': case 'Lampe_PE':             return state.faults.pe ? null : 0;
-      default:                                  return 0;
+      case 'V_L': case 'D_L': case 'S_in':  return Lsrc;
+      case 'S_out': case 'D_Lsw':           return Lsw;
+      case 'Lampe_L':                       return state.faults.lnSwap ? N   : (state.faults.lampL ? null : Lsw);
+      case 'Lampe_N':                       return state.faults.lnSwap ? Lsw : N;
+      case 'V_N':                           return 0;              // Quelle N (vor evtl. N-Bruch)
+      case 'D_N':                           return N;
+      case 'V_PE':                          return state.faults.koerper ? 230 : 0;
+      case 'D_PE': case 'Lampe_PE':         return PE;
+      default:                              return 0;
     }
   }
   function measure(a, b) {
@@ -53,23 +61,24 @@ const Workshop = (() => {
 
   /* --- Init / Szene ------------------------------------------------------*/
   function init(container) {
-    app = new PIXI.Application({ width: 920, height: 560, backgroundAlpha: 0, antialias: true,
+    app = new PIXI.Application({ width: W, height: H, backgroundAlpha: 0, antialias: true,
       resolution: Math.min(window.devicePixelRatio || 1, 2), autoDensity: true });
-    app.view.style.width = '100%'; app.view.style.height = 'auto'; app.view.style.maxWidth = '920px';
+    app.view.style.width = '100%'; app.view.style.height = 'auto'; app.view.style.maxWidth = W + 'px';
+    app.view.style.touchAction = 'none'; app.view.style.cursor = 'grab';
     container.appendChild(app.view);
-    app.stage.eventMode = 'static'; app.stage.hitArea = app.screen;
 
-    sceneG = new PIXI.Graphics(); app.stage.addChild(sceneG);   // Kabel/Adern
-    hiG = new PIXI.Graphics(); app.stage.addChild(hiG);         // Klemmen-Highlight
+    sceneG = new PIXI.Graphics(); app.stage.addChild(sceneG);
+    hiG = new PIXI.Graphics(); app.stage.addChild(hiG);
     lampGlow = new PIXI.Graphics(); app.stage.addChild(lampGlow);
 
     buildDevices();
     buildTerminals();
     buildDuspol();
 
-    app.stage.on('pointermove', onMove);
-    app.stage.on('pointerup', onUp);
-    app.stage.on('pointerupoutside', onUp);
+    // NATIVE Drag (robust, unabhängig von Pixi-Events; Maus + Touch)
+    app.view.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onWinMove);
+    window.addEventListener('pointerup', onWinUp);
 
     newTask();
     return api;
@@ -87,7 +96,6 @@ const Workshop = (() => {
   }
   function buildDevices() {
     box(40, 150, 120, 250, 'Verteiler + LS');
-    // Abzweigdose
     const d = new PIXI.Graphics();
     d.lineStyle(2, 0x2b4763).beginFill(0x122237, 0.92).drawCircle(430, 275, 64).endFill();
     app.stage.addChild(d); label(430, 200, 'Abzweigdose');
@@ -95,7 +103,6 @@ const Workshop = (() => {
     box(720, 225, 95, 95, 'Leuchte');
   }
 
-  // Klemmen (einzeln messbare Knoten)
   function buildTerminals() {
     const defs = [
       ['V_L', 160, 235, 'L'], ['V_N', 160, 275, 'N'], ['V_PE', 160, 315, 'PE'],
@@ -132,40 +139,57 @@ const Workshop = (() => {
     app.stage.addChild(panel);
     readout = { leds, reading, panel };
 
-    probes.red = makeProbe(0xe63030, 250, 520, '+');
-    probes.black = makeProbe(0x0b1118, 660, 520, '−');
-    label(250, 545, 'rote Spitze ziehen', 0x9fb4cc).scale.set(0.9);
-    label(660, 545, 'schwarze Spitze ziehen', 0x9fb4cc).scale.set(0.9);
+    probes.red = makeProbe(0xe63030, START.red.x, START.red.y, '+');
+    probes.black = makeProbe(0x0b1118, START.black.x, START.black.y, '−');
+    label(250, 548, 'rote Spitze ziehen', 0x9fb4cc).scale.set(0.9);
+    label(660, 548, 'schwarze Spitze ziehen', 0x9fb4cc).scale.set(0.9);
   }
   function makeProbe(color, x, y, sign) {
     const c = new PIXI.Container(); c.x = x; c.y = y;
     const g = new PIXI.Graphics();
-    g.beginFill(color).lineStyle(3, 0xffffff, 0.85).drawCircle(0, 0, 13).endFill();          // Klemm-Spitze
-    g.lineStyle(0).beginFill(0xffffff, 0.9).drawCircle(0, 0, 4).endFill();                    // Kontaktpunkt
+    g.beginFill(color).lineStyle(3, 0xffffff, 0.85).drawCircle(0, 0, 13).endFill();
+    g.lineStyle(0).beginFill(0xffffff, 0.9).drawCircle(0, 0, 4).endFill();
     c.addChild(g);
     const s = new PIXI.Text(sign, { fontFamily: 'Barlow, sans-serif', fontSize: 16, fill: 0xffffff, fontWeight: '900' });
     s.anchor.set(0.5); s.y = -26; c.addChild(s);
-    c.eventMode = 'static'; c.cursor = 'grab';
-    c.hitArea = new PIXI.Circle(0, 0, 26);   // große Greiffläche
     c.snap = null;
-    c.on('pointerdown', (e) => { drag = { p: c, dx: c.x - e.global.x, dy: c.y - e.global.y }; c.cursor = 'grabbing'; c.zIndex = 10; });
+    app.stage.addChild(c);
     return c;
   }
-  function nearestTerm(p, r) {
+
+  /* --- Koordinaten-Umrechnung Canvas -> Bühne ---------------------------*/
+  function toStage(clientX, clientY) {
+    const r = app.view.getBoundingClientRect();
+    return { x: (clientX - r.left) * (W / r.width), y: (clientY - r.top) * (H / r.height) };
+  }
+  function nearestTerm(x, y, r) {
     let best = null, bd = r;
-    terminals.forEach(t => { const d = Math.hypot(t.x - p.x, t.y - p.y); if (d < bd) { bd = d; best = t; } });
+    terminals.forEach(t => { const d = Math.hypot(t.x - x, t.y - y); if (d < bd) { bd = d; best = t; } });
     return best;
   }
-  function onMove(e) {
+  function onDown(e) {
+    const p = toStage(e.clientX, e.clientY);
+    const dr = Math.hypot(p.x - probes.red.x, p.y - probes.red.y);
+    const db = Math.hypot(p.x - probes.black.x, p.y - probes.black.y);
+    let pr = null;
+    if (dr <= 32 && dr <= db) pr = probes.red;
+    else if (db <= 32) pr = probes.black;
+    if (!pr) return;
+    drag = { p: pr, dx: pr.x - p.x, dy: pr.y - p.y };
+    try { app.view.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault(); redraw();
+  }
+  function onWinMove(e) {
     if (!drag) return;
-    drag.p.x = e.global.x + drag.dx; drag.p.y = e.global.y + drag.dy;
+    const p = toStage(e.clientX, e.clientY);
+    drag.p.x = p.x + drag.dx; drag.p.y = p.y + drag.dy;
     redraw();
   }
-  function onUp() {
+  function onWinUp() {
     if (!drag) return;
-    const t = nearestTerm(drag.p, 48);
+    const t = nearestTerm(drag.p.x, drag.p.y, 50);
     if (t) { drag.p.x = t.x; drag.p.y = t.y; drag.p.snap = t.id; } else drag.p.snap = null;
-    drag.p.cursor = 'grab'; drag = null; redraw();
+    drag = null; redraw();
   }
 
   /* --- Kabel mit Mantel + Adern -----------------------------------------*/
@@ -174,7 +198,6 @@ const Workshop = (() => {
     const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
     const jax = ax + ux * L * 0.20, jay = ay + uy * L * 0.20;
     const jbx = ax + ux * L * 0.80, jby = ay + uy * L * 0.80;
-    // Mantel
     g.lineStyle(22, COL.jacket, 1); g.moveTo(jax, jay).lineTo(jbx, jby);
     g.lineStyle(22, 0x565c66, 0.25); g.moveTo(jax, jay).lineTo(jbx, jby);
     const coreOff = [-7, 0, 7];
@@ -184,32 +207,25 @@ const Workshop = (() => {
       g.lineStyle(4, base, a);
       g.moveTo(ax + nx * to, ay + ny * to).lineTo(jax + nx * co, jay + ny * co)
        .lineTo(jbx + nx * co, jby + ny * co).lineTo(bx + nx * to, by + ny * to);
-      if (i === 2) { g.lineStyle(2, COL.PEy, a).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); } // PE grün-gelb
+      if (i === 2) { g.lineStyle(2, p === 230 ? 0xff5c5c : COL.PEy, a).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); }
       if (i === 0 && p === 230) { g.lineStyle(2, 0xfff2a8, 0.9).moveTo(jax + nx * co, jay + ny * co).lineTo(jbx + nx * co, jby + ny * co); }
     });
   }
-
   function redraw() {
     sceneG.clear();
-    // Kabel A: Verteiler -> Dose (L/N/PE)
     cable(sceneG, 160, 275, 372, 275, ['D_L', 'D_N', 'D_PE'], [-40, 0, 40]);
-    // Kabel B: Dose -> Schalter (2 Adern: L hin, L geschaltet zurück)
     cable(sceneG, 430, 213, 430, 132, ['S_in', 'S_out'], [-25, 25]);
-    // Kabel C: Dose -> Leuchte (geschaltete L / N / PE)
     cable(sceneG, 492, 275, 720, 275, ['Lampe_L', 'Lampe_N', 'Lampe_PE'], [-25, 0, 25]);
 
-    // Leuchte
     lampGlow.clear();
     if (lampLit()) lampGlow.beginFill(0xffd34d, 0.9).drawCircle(767, 272, 30).endFill().beginFill(0xffd34d, 0.25).drawCircle(767, 272, 48).endFill();
     else lampGlow.beginFill(0x2a3a4e, 1).drawCircle(767, 272, 26).endFill();
 
-    // Duspol-Leitungen
     sceneG.lineStyle(4, 0xe63030, 1).moveTo(readout.panel.x + 45, readout.panel.y + 78).lineTo(probes.red.x, probes.red.y);
     sceneG.lineStyle(4, 0x0b1118, 1).moveTo(readout.panel.x + 235, readout.panel.y + 78).lineTo(probes.black.x, probes.black.y);
 
-    // Highlight der Zielklemme beim Ziehen
     hiG.clear();
-    if (drag) { const t = nearestTerm(drag.p, 48); if (t) hiG.lineStyle(3, 0x00e0ff, 0.9).drawCircle(t.x, t.y, 15); }
+    if (drag) { const t = nearestTerm(drag.p.x, drag.p.y, 50); if (t) hiG.lineStyle(3, 0x00e0ff, 0.9).drawCircle(t.x, t.y, 15); }
 
     updateReadout();
   }
@@ -227,14 +243,13 @@ const Workshop = (() => {
 
   /* --- Aufgabe / Diagnose ------------------------------------------------*/
   function newTask() {
-    // versteckten Fehler zuteilen (gewichtet: gelegentlich "kein Fehler")
-    const pool = ['pe', 'n', 'lampL', 'switchDefect', 'pe', 'n', 'lampL', 'none'];
+    const pool = ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'pe', 'n', 'lampL', 'none'];
     const active = pool[Math.floor(Math.random() * pool.length)];
-    state.faults = { pe: active === 'pe', n: active === 'n', lampL: active === 'lampL', switchDefect: active === 'switchDefect' };
+    Object.keys(state.faults).forEach(k => state.faults[k] = (k === active));
     state.active = active; state.taskDone = false;
     state.fuseOn = true; state.switchOn = true;
-    // Prüfspitzen lösen
-    probes.red.snap = null; probes.black.snap = null;
+    probes.red.x = START.red.x; probes.red.y = START.red.y; probes.red.snap = null;
+    probes.black.x = START.black.x; probes.black.y = START.black.y; probes.black.snap = null;
     redraw();
     return active;
   }

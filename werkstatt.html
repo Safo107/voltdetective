@@ -65,10 +65,13 @@
     <div class="ws-group" style="margin-bottom:12px">
       <span class="lbl">Diagnose:</span>
       <button class="btn tiny" data-dx="none">Kein Fehler</button>
+      <button class="btn tiny" data-dx="fuseBlown">Sicherung defekt</button>
       <button class="btn tiny" data-dx="pe">PE unterbrochen</button>
       <button class="btn tiny" data-dx="n">N unterbrochen</button>
       <button class="btn tiny" data-dx="lampL">Kabelbruch L→Leuchte</button>
       <button class="btn tiny" data-dx="switchDefect">Schaltkontakt defekt</button>
+      <button class="btn tiny" data-dx="lnSwap">L/N vertauscht</button>
+      <button class="btn tiny" data-dx="koerper">Körperschluss (L→PE)</button>
       <span id="ws-feedback" class="ws-feedback"></span>
     </div>
 
@@ -77,7 +80,7 @@
       <span><span class="swatch" style="background:#1f6fd0"></span> N (Neutralleiter, blau)</span>
       <span><span class="swatch" style="background:#2fa02f"></span> PE (Schutzleiter, grün-gelb)</span>
     </div>
-    <p class="ws-hint">Tipp: Miss <strong>L–N</strong> an der Leuchte (230&nbsp;V bei Schalter EIN), prüfe mit <strong>PE–N</strong> den Schutzleiter, und beobachte, wie „kein Bezug" erscheint, sobald eine Ader unterbrochen ist.</p>
+    <p class="ws-hint">Tipp: <strong>L–N</strong> an der Leuchte = 230&nbsp;V (Schalter EIN). Prüfe <strong>PE–N</strong>: normal 0&nbsp;V — zeigt es 230&nbsp;V, liegt ein <strong>Körperschluss</strong> vor. Miss dich vom Verteiler zur Leuchte durch: wo „kein Bezug" oder 0&nbsp;V beginnt, sitzt die Unterbrechung.</p>
   </main>
 
   <div id="disclaimer-bar">
