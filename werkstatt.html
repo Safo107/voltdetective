@@ -87,7 +87,7 @@
 </div></div>
 
 <script src="assets/js/pixi.min.js"></script>
-<script src="js/workshop.js?v=3"></script>
+<script src="js/workshop.js?v=4"></script>
 <script>
   window.addEventListener('DOMContentLoaded', function () {
     Workshop.init(document.getElementById('stage'));
@@ -99,8 +99,9 @@
       bed.innerHTML = '<span class="lbl">Bedienen:</span>';
       Workshop.controls().forEach(function (c) {
         var b = document.createElement('button'); b.className = 'btn tiny';
-        b.textContent = c.label + ': ' + Workshop.opState(c.key);
-        b.onclick = function () { Workshop.toggle(c.key); b.textContent = c.label + ': ' + Workshop.opState(c.key); };
+        var st = Workshop.opState(c.key);
+        b.textContent = st ? (c.label + ': ' + st) : c.label;
+        b.onclick = function () { Workshop.toggle(c.key); renderBedienen(); };
         bed.appendChild(b);
       });
     }

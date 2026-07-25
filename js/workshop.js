@@ -28,7 +28,7 @@ const Workshop = (() => {
 
   const state = {
     scene: 'basis',
-    fuseOn: true, switchOn: true,   // basis
+    fuseOn: true, switchOn: true, fiArmed: true,   // basis
     p1: 0, p2: 0,                   // wechsel: Stellung der zwei Wechselschalter
     faults: {},                     // je Szene gesetzt
     brokenTrav: 1, defSwitch: 1,    // welche Korrespondierende / welcher Schalter defekt
@@ -46,7 +46,7 @@ const Workshop = (() => {
       faults: ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE'],
       pool:   ['fuseBlown', 'pe', 'n', 'lampL', 'switchDefect', 'lnSwap', 'koerper', 'steckPE', 'pe', 'n', 'lampL', 'none'],
       lamp:   { L: 'Lampe_L', N: 'Lampe_N', x: 767, y: 272 },
-      controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'switch', label: 'Schalter' }],
+      controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'fi', label: 'FI' }, { key: 'fitest', label: 'Prüftaste' }, { key: 'switch', label: 'Schalter' }],
       terminals: [
         ['V_L', 160, 235, 'L'], ['V_N', 160, 275, 'N'], ['V_PE', 160, 315, 'PE'],
         ['D_L', 372, 240, 'L'], ['D_N', 372, 275, 'N'], ['D_PE', 372, 310, 'PE'],
@@ -56,6 +56,11 @@ const Workshop = (() => {
       ],
       draw(g) {
         boxG(g, 40, 150, 120, 250, 'Verteiler + LS');
+        // FI/RCD im Verteiler
+        g.lineStyle(1, 0x3a5474).beginFill(0x18324a).drawRoundedRect(52, 336, 96, 44, 6).endFill();
+        labelG(g, 100, 352, 'FI / RCD');
+        g.lineStyle(0).beginFill(0xf5a623).drawCircle(132, 368, 5).endFill();
+        labelG(g, 92, 368, 'Prüftaste');
         g.lineStyle(2, 0x2b4763).beginFill(0x122237, 0.92).drawCircle(430, 275, 64).endFill();
         labelG(g, 430, 200, 'Abzweigdose');
         boxG(g, 395, 78, 70, 54, 'Schalter');
@@ -68,10 +73,12 @@ const Workshop = (() => {
       },
       pot(id) {
         const on = state.fuseOn && !state.faults.fuseBlown;
-        const Lsrc = on ? 230 : 0;
-        const Lsw = (on && state.switchOn && !state.faults.switchDefect) ? 230 : 0;
+        // FI (RCD) löst bei Körperschluss aus -> Kreis wird stromlos
+        const power = on && state.fiArmed && !state.faults.koerper;
+        const Lsrc = power ? 230 : 0;
+        const Lsw = (power && state.switchOn && !state.faults.switchDefect) ? 230 : 0;
         const N = state.faults.n ? null : 0;
-        const PE = state.faults.koerper ? 230 : (state.faults.pe ? null : 0);
+        const PE = state.faults.pe ? null : 0;
         switch (id) {
           case 'V_L': case 'D_L': case 'S_in': return Lsrc;
           case 'S_out': case 'D_Lsw': return Lsw;
@@ -79,11 +86,11 @@ const Workshop = (() => {
           case 'Lampe_N': return state.faults.lnSwap ? Lsw : N;
           case 'V_N': return 0;
           case 'D_N': return N;
-          case 'V_PE': return state.faults.koerper ? 230 : 0;
+          case 'V_PE': return 0;
           case 'D_PE': case 'Lampe_PE': return PE;
           case 'Steck_L': return Lsrc;
           case 'Steck_N': return N;
-          case 'Steck_PE': return state.faults.koerper ? 230 : ((state.faults.pe || state.faults.steckPE) ? null : 0);
+          case 'Steck_PE': return (state.faults.pe || state.faults.steckPE) ? null : 0;
           default: return 0;
         }
       },
@@ -91,8 +98,8 @@ const Workshop = (() => {
 
     /* ---------------- Wechselschaltung ---------------- */
     wechsel: {
-      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect', 'koerper'],
-      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'koerper', 'none'],
+      faults: ['fuseBlown', 'pe', 'n', 'korrespondierend', 'switchDefect'],
+      pool:   ['fuseBlown', 'pe', 'n', 'korrespondierend', 'korrespondierend', 'switchDefect', 'none'],
       lamp:   { L: 'W_LampeL', N: 'W_LampeN', x: 800, y: 275 },
       controls: [{ key: 'fuse', label: 'Sicherung' }, { key: 'p1', label: 'Schalter 1' }, { key: 'p2', label: 'Schalter 2' }],
       terminals: [
@@ -360,7 +367,7 @@ const Workshop = (() => {
     state.faults = {};
     keys.forEach(k => state.faults[k] = (k === active));
     state.active = active; state.taskDone = false;
-    state.fuseOn = true; state.switchOn = true; state.p1 = 0; state.p2 = 0;
+    state.fuseOn = true; state.switchOn = true; state.fiArmed = true; state.p1 = 0; state.p2 = 0;
     state.brokenTrav = Math.random() < 0.5 ? 1 : 2;
     state.defSwitch = Math.random() < 0.5 ? 1 : 2;
     probes.red.x = START.red.x; probes.red.y = START.red.y; probes.red.snap = null;
@@ -376,6 +383,8 @@ const Workshop = (() => {
   function toggle(key) {
     if (key === 'fuse') state.fuseOn = !state.fuseOn;
     else if (key === 'switch') state.switchOn = !state.switchOn;
+    else if (key === 'fi') state.fiArmed = !state.fiArmed;
+    else if (key === 'fitest') state.fiArmed = false;   // Prüftaste löst den FI aus
     else if (key === 'p1') state.p1 = state.p1 ? 0 : 1;
     else if (key === 'p2') state.p2 = state.p2 ? 0 : 1;
     redraw();
@@ -383,6 +392,11 @@ const Workshop = (() => {
   function opState(key) {
     if (key === 'fuse') return state.fuseOn ? 'EIN' : 'AUS';
     if (key === 'switch') return state.switchOn ? 'EIN' : 'AUS';
+    if (key === 'fi') {
+      const trips = state.faults.koerper && state.fuseOn && !state.faults.fuseBlown && state.fiArmed;
+      return trips ? 'AUSGELÖST' : (state.fiArmed ? 'ein' : 'aus');
+    }
+    if (key === 'fitest') return '';
     if (key === 'p1') return 'Stellung ' + (state.p1 + 1);
     if (key === 'p2') return 'Stellung ' + (state.p2 + 1);
     return '';
