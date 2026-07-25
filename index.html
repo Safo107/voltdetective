@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>VoltDetective – ElektroGenius</title>
+<meta name="description" content="VoltDetective – interaktives Stromkreis-Spiel: Fehler an Sicherung, Serienschalter und Lampenkette per echter Simulation finden. Von ElektroGenius.">
+<link rel="canonical" href="https://spiel.elektrogenius.de">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="eg-particles" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+<div style="position:relative;z-index:1">
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <div class="logo-circle">EG</div>
+    <div id="header-title">VoltDetective</div>
+    <div class="header-actions"><span style="width:34px;display:inline-block"></span></div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="content">
+    <div class="intro">
+      <h1 class="intro-title">Stromkreis-Simulation</h1>
+      <p class="intro-sub">Echte zustandsbasierte Logik statt starrer Klicks. Finde die Fehler — aber Vorsicht: nicht alles Dunkle ist ein Defekt.</p>
+    </div>
+    <div id="game"><!-- vom Spiel aufgebaut --></div>
+  </main>
+
+  <!-- DISCLAIMER -->
+  <div id="disclaimer-bar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Die Simulation dient ausschließlich zu Lern- und Übungszwecken und gibt unsere persönliche Meinung als ausgebildete Elektrofachkraft wieder. Kein Ersatz für normgerechte Fachplanung.
+  </div>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    VoltDetective by <a href="https://elektrogenius.de" target="_blank" rel="noopener">elektrogenius.de</a>
+    &nbsp;·&nbsp; <a href="impressum.html">Impressum</a> &nbsp;·&nbsp; <a href="datenschutz.html">Datenschutz</a>
+  </footer>
+
+</div><!-- /#app -->
+</div>
+
+<!-- COOKIE BANNER -->
+<div id="cookie-banner">
+  <div id="cookie-text">Wir nutzen Google Analytics zur Verbesserung unserer App. Einverstanden?</div>
+  <div id="cookie-actions">
+    <button id="cookie-accept">Akzeptieren</button>
+    <button id="cookie-reject">Ablehnen</button>
+  </div>
+</div>
+
+<!-- GA4 (loaded only after consent) -->
+<script>
+(function(){
+  var consent = localStorage.getItem('eg_analytics');
+  function loadGA() {
+    if (window._gaLoaded) return;
+    window._gaLoaded = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-9EYXMP1S7Y';
+    s.async = true;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', 'G-9EYXMP1S7Y');
+  }
+  if (consent === '1') { loadGA(); }
+  var banner = document.getElementById('cookie-banner');
+  if (consent !== null) { if (banner) banner.remove(); }
+  var acc = document.getElementById('cookie-accept');
+  var rej = document.getElementById('cookie-reject');
+  if (acc) acc.addEventListener('click', function(){ localStorage.setItem('eg_analytics','1'); if (banner) banner.remove(); loadGA(); });
+  if (rej) rej.addEventListener('click', function(){ localStorage.setItem('eg_analytics','0'); if (banner) banner.remove(); });
+})();
+</script>
+
+<!-- Spiel (klassische Scripts, kein Build) -->
+<script src="js/config.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/faults.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+
+<!-- Partikel-Hintergrund (geteilt) -->
+<script src="assets/js/particles.js"></script>
+<script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
+</body>
+</html>
