@@ -25,6 +25,15 @@
   .mode-card p { color: var(--muted); font-size: 14px; line-height: 1.6; flex: 1; }
   .mode-go { margin-top: 16px; color: var(--cyan); font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
   .beta { font-size: 11px; font-weight: 900; color: var(--navy); background: var(--cyan); border-radius: 6px; padding: 2px 7px; letter-spacing: .05em; margin-left: 8px; vertical-align: middle; }
+  .board-wrap { margin-top: 26px; padding: 20px; }
+  .name-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .name-row input { background: var(--card-bg2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 14px; min-width: 180px; }
+  .name-row input:focus { outline: none; border-color: var(--cyan); }
+  .board-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .board-table th, .board-table td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  .board-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .board-table td.num, .board-table th.num { text-align: right; }
+  .board-empty { color: var(--muted); font-style: italic; }
 </style>
 </head>
 <body>
@@ -69,6 +78,19 @@
         </span>
       </a>
     </div>
+
+    <section class="board-wrap card">
+      <div class="name-row">
+        <label style="color:var(--muted);font-size:13px">Dein Name:</label>
+        <input id="pname" type="text" maxlength="24" placeholder="Anonym" autocomplete="off">
+        <button class="btn tiny primary" id="savename">Speichern</button>
+        <span id="name-saved" style="color:var(--ok);font-size:13px"></span>
+      </div>
+      <h2 style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:22px;margin-bottom:4px">Bestenliste</h2>
+      <p class="mode-tag" style="margin-bottom:12px">Fortschritt &amp; Erfolge</p>
+      <div style="overflow-x:auto"><table class="board-table" id="board-table"><tbody></tbody></table></div>
+      <p style="color:var(--muted);font-size:12px;margin-top:10px">Aktuell lokal auf diesem Gerät gespeichert. Ohne Name wird dein Fortschritt als „Anonym" geführt. Die globale Liste (jeder sieht alle) folgt mit Firebase.</p>
+    </section>
   </main>
 
   <div id="disclaimer-bar">
@@ -118,6 +140,27 @@
 })();
 </script>
 
+<script src="js/board.js?v=1"></script>
+<script>
+(function(){
+  var input = document.getElementById('pname');
+  input.value = (localStorage.getItem('eg_vd_name') || '');
+  function esc(s){ return String(s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+  function renderBoard(){
+    var rows = Board.leaderboard();
+    var tb = document.querySelector('#board-table tbody');
+    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Gesamt</th></tr>';
+    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="5" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
+    tb.innerHTML = head + rows.slice(0,20).map(function(r,i){
+      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
+    }).join('');
+  }
+  function save(){ Board.setName(input.value); var s=document.getElementById('name-saved'); s.textContent='gespeichert'; setTimeout(function(){ s.textContent=''; },1500); renderBoard(); }
+  document.getElementById('savename').onclick = save;
+  input.addEventListener('keydown', function(e){ if(e.key==='Enter') save(); });
+  renderBoard();
+})();
+</script>
 <script src="assets/js/particles.js"></script>
 <script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
 </body>

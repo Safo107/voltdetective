@@ -65,7 +65,7 @@ const Game = {
     const lit = Simulation.evaluate(this.circuit);
     const was = this.solved;
     this.solved = this.circuit.lamps.every(l => lit[l.id]);
-    if (this.solved && !was) { this.stats.solved++; this.saveStats(); }
+    if (this.solved && !was) { this.stats.solved++; this.saveStats(); if (typeof Board !== 'undefined') Board.add('lampen'); }
   },
 
   onChange() { this.evaluateSolved(); UI.refresh(); },

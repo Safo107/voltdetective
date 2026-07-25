@@ -365,7 +365,7 @@ const Workshop = (() => {
     probes.black.x = START.black.x; probes.black.y = START.black.y; probes.black.snap = null;
     redraw(); return active;
   }
-  function diagnose(claim) { const correct = claim === state.active; if (correct && !state.taskDone) { state.score++; state.taskDone = true; } return { correct, done: state.taskDone, label: FAULTS[state.active] }; }
+  function diagnose(claim) { const correct = claim === state.active; if (correct && !state.taskDone) { state.score++; state.taskDone = true; if (typeof Board !== 'undefined') Board.add('werkstatt'); } return { correct, done: state.taskDone, label: FAULTS[state.active] }; }
   function toggle(key) {
     if (key === 'fuse') state.fuseOn = !state.fuseOn;
     else if (key === 'switch') state.switchOn = !state.switchOn;
