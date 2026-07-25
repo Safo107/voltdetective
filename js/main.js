@@ -3,8 +3,9 @@
  * ==========================================================================*/
 const Game = {
   circuit: null,
-  round: null,        // { realDefects, trap }
-  diagnoses: {},      // lampId -> 'filament' | 'wire' | 'none'
+  round: null,        // { realFaults:[{id,type,label}], trap }
+  found: [],          // korrekt diagnostizierte (=behobene) Fehler
+  wrong: 0,           // Anzahl Fehldiagnosen (für Feedback/Scoring)
   solved: false,
   stats: { played: 0, solved: 0 },   // lokal gespeichert (eg_vd_stats)
 
@@ -17,52 +18,57 @@ const Game = {
 
   newRound(silent) {
     this.round = Faults.generateRound(this.circuit);
-    this.diagnoses = {};
+    this.found = [];
+    this.wrong = 0;
     this.solved = false;
     this.stats.played++;
     this.saveStats();
     if (!silent) UI.refresh();
   },
 
-  setDiagnosis(lampId, type) { this.diagnoses[lampId] = type; },
+  /* --- Diagnose aus der Detail-Ansicht einer Lampe -----------------------
+   * claimed = Fehlerart-Schlüssel ODER 'none' ("kein Defekt, nur aus").
+   * Liefert ein Ergebnis-Objekt, das die UI in Feedback übersetzt.
+   * ----------------------------------------------------------------------*/
+  diagnose(lamp, claimed) {
+    const b = Simulation.firstBlock(this.circuit, lamp);
 
-  // Anzahl echter Defekte, die korrekt diagnostiziert wurden
-  correctDiagnosisCount() {
-    return this.round.realDefects.filter(d => {
-      const lamp = this.circuit.lamps.find(l => l.id === d.lampId);
-      return this.diagnoses[d.lampId] === Simulation.actualDefect(this.circuit, lamp);
-    }).length;
+    if (claimed === 'none') {
+      if (!b || b.kind === 'off') return { result: 'ok-none' };
+      return { result: 'wrong-none' };
+    }
+    if (!b || b.kind === 'off')  return { result: 'trap' };        // Meister-Falle
+    if (b.kind === 'short')      return { result: 'short-elsewhere' };
+
+    // b.kind === 'fault'
+    if (claimed === b.type) {
+      this.repair(b.el, b.type);
+      return { result: 'correct', type: b.type };
+    }
+    this.wrong++;
+    return { result: 'wrong' };
   },
 
-  // Runde gelöst, wenn: (1) alle echten Defekte korrekt diagnostiziert,
-  // (2) keine falsche Diagnose eingetragen, (3) die 30%-Trap aufgelöst ist,
-  // d.h. alle prinzipiell intakten Lampen leuchten wieder.
-  evaluateSolved() {
-    const allDefectsFound =
-      this.correctDiagnosisCount() === this.round.realDefects.length;
-
-    const noFalsePositive = Object.entries(this.diagnoses).every(([lampId, type]) => {
-      if (!type || type === 'none') return true;
-      const lamp = this.circuit.lamps.find(l => l.id === lampId);
-      return Simulation.actualDefect(this.circuit, lamp) === type;
-    });
-
-    const lit = Simulation.evaluate(this.circuit);
-    const trapResolved = this.circuit.lamps.every(lamp => {
-      const hasRealDefect = Simulation.actualDefect(this.circuit, lamp) !== null;
-      return hasRealDefect || lit[lamp.id]; // intakte Lampen müssen leuchten
-    });
-
-    const wasSolved = this.solved;
-    this.solved = allDefectsFound && noFalsePositive && trapResolved;
-    if (this.solved && !wasSolved) { this.stats.solved++; this.saveStats(); }
-  },
-
-  // Zentraler Änderungs-Hook: neu auswerten + UI aktualisieren (sofort)
-  onChange() {
+  // Korrekte Diagnose behebt den Fehler -> Lampe wird wieder intakt.
+  repair(el, type) {
+    el.fault = null;
+    this.found.push({ id: el.id, type, label: el.label });
     this.evaluateSolved();
-    UI.refresh();
   },
+
+  foundCount() { return this.found.length; },
+  totalFaults() { return this.round.realFaults.length; },
+
+  // Gelöst, wenn ALLE Lampen leuchten (= alle Fehler behoben UND alle nötigen
+  // Schalter/Sicherung eingeschaltet, d.h. auch die 30%-Falle aufgelöst).
+  evaluateSolved() {
+    const lit = Simulation.evaluate(this.circuit);
+    const was = this.solved;
+    this.solved = this.circuit.lamps.every(l => lit[l.id]);
+    if (this.solved && !was) { this.stats.solved++; this.saveStats(); }
+  },
+
+  onChange() { this.evaluateSolved(); UI.refresh(); },
 
   /* --- lokale Statistik (nur im Browser) --------------------------------*/
   loadStats() {

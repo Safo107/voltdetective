@@ -6,31 +6,34 @@
  * (Entspricht der geforderten "ScriptableObject / Config.js"-Idee.)
  * ==========================================================================*/
 const CONFIG = {
-  /* Wahrscheinlichkeiten (0..1) */
   probabilities: {
     // 30%-Start-Chance: Sicherung ODER ein Schalter ist zu Rundenbeginn nur
     // AUSGESCHALTET. Das ist KEIN Defekt und taucht nicht in der Diagnoseliste auf.
     switchedOffTrap: 0.30,
 
-    // Echte Schäden (kommen in die Diagnoseliste) — pro Lampe ausgewürfelt:
-    filamentDefect: 0.22, // Glühwendel defekt
-    wireDefect:     0.10, // Kabelbruch / Verkabelung unterbrochen
+    // Echte Fehlerarten — je passendes Bauteil ausgewürfelt (0..1):
+    faults: {
+      sicherung_defekt: 0.06, // LS ausgelöst/defekt  -> ganzer Kreis tot
+      klemme_lose:      0.12, // lose Klemme / Wackelkontakt -> Zweig tot
+      schalter_defekt:  0.10, // Schaltkontakt defekt (Schalter an, kein Durchgang)
+      kabelbruch:       0.12, // Leitung unterbrochen -> Zweig/Lampe tot
+      fassung_defekt:   0.12, // Fassungskontakt / Lampe locker -> Lampe tot
+      gluehwendel:      0.16, // Glühwendel durchgebrannt -> Lampe tot
+    },
+    // Wird eine Leitung defekt, ist es mit dieser Chance ein KURZSCHLUSS
+    // (Sicherung fliegt sofort), sonst ein Kabelbruch.
+    shortInsteadOfBreak: 0.30,
   },
 
-  /* Runden-Regeln */
-  maxRealDefects:    3,    // Deckel: max. so viele echte Defekte pro Runde
-  guaranteeOneDefect: true, // mind. 1 echter Defekt, damit die Runde lösbar/lohnend ist
+  minRealFaults: 1,  // mind. so viele echte Fehler pro Runde (spielbar)
+  maxRealFaults: 4,  // Deckel pro Runde
 
-  /* Aufbau */
   lampChain: { count: 6 }, // Lampenkette: 1 Ausschalter -> N parallele Lampen
 
-  /* Timing (ms) */
   timing: {
-    // Lampen müssen praktisch verzögerungsfrei reagieren (Vorgabe < 50 ms).
-    // Der LOGISCHE Zustand wird synchron/sofort neu berechnet; dies ist nur
-    // die kurze optische Glüh-Blende.
+    // Lampen reagieren praktisch verzögerungsfrei (Vorgabe < 50 ms); dies ist
+    // nur die kurze optische Glüh-Blende.
     lampGlowMs: 40,
-    // Mechanische Kipp-Animation der Wippe/Sicherung.
-    flipMs: 160,
+    flipMs: 160, // mechanische Kipp-Animation
   },
 };

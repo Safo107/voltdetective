@@ -1,21 +1,20 @@
 /* ============================================================================
  * VoltDetective v2 — UI & Interaktions-Matrix
  * ----------------------------------------------------------------------------
- * Strikte Trennung der Interaktionen:
- *   - Einfacher Klick/Tap auf Wippe/Sicherung im Raum: schaltet NUR den Zustand
- *     um und triggert die Kipp-Animation (Sichtprüfung / Einschalten).
- *   - Kontext-Button "Öffnen" an einer Lampe: erst hier öffnet sich die
- *     Detail-Ansicht für die Fehlersuche (Sichtprüfung, Klemmen, Messgerät,
- *     Glühwendel) und die Diagnose.
- *
- * Design: ElektroGenius-Standard (Navy/Cyan, Barlow). KEINE Emojis als Icons —
- * ausschließlich saubere Inline-SVGs (siehe ICON-Set unten).
+ * Strikte Trennung:
+ *   - Tap auf Wippe/Sicherung im Raum: schaltet NUR den Zustand + Kipp-Animation.
+ *   - Kontext-Button "Öffnen" an einer Lampe: öffnet die Fehlersuche
+ *     (Sichtprüfung, Klemmen, Messgerät, Glühwendel) + Diagnose (7 Fehlerarten).
+ * Design: ElektroGenius (Navy/Cyan, Barlow). KEINE Emojis — nur Inline-SVGs.
  * ==========================================================================*/
 const UI = (() => {
   let game;
   const refs = { lamps: {}, channels: {}, fuse: null };
 
-  /* --- Inline-SVG-Icons (feather-Stil, stroke=currentColor) --------------*/
+  // Reihenfolge der Diagnose-Optionen (Fehlerarten aus dem Simulations-Katalog)
+  const FAULT_ORDER = ['sicherung_defekt', 'klemme_lose', 'schalter_defekt', 'kabelbruch', 'kurzschluss', 'fassung_defekt', 'gluehwendel'];
+
+  /* --- Inline-SVG-Icons (feather-Stil) ----------------------------------*/
   const P = {
     refresh: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
     search:  '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
@@ -34,8 +33,8 @@ const UI = (() => {
     return '<svg class="ic ' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
       'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + P[name] + '</svg>';
   }
+  const FT = () => Simulation.FAULT_TYPES;
 
-  /* --- kleiner DOM-Helfer -----------------------------------------------*/
   function el(tag, cls, html) {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -55,22 +54,19 @@ const UI = (() => {
     root.innerHTML = '';
     refs.lamps = {}; refs.channels = {};
 
-    /* Kontrollleiste: Status + Neue Runde */
     const bar = el('div', 'ctrlbar');
     const status = el('div', 'status'); status.id = 'status';
     const btn = el('button', 'btn primary', icon('refresh') + '<span>Neue Runde</span>');
     btn.onclick = () => game.newRound();
-    bar.appendChild(status);
-    bar.appendChild(btn);
+    bar.appendChild(status); bar.appendChild(btn);
     root.appendChild(bar);
 
     const layout = el('div', 'layout');
     root.appendChild(layout);
 
-    /* ---------------- Raum ---------------- */
+    /* Raum */
     const room = el('section', 'room card');
     layout.appendChild(room);
-
     const ceiling = el('div', 'ceiling');
     room.appendChild(ceiling);
 
@@ -84,8 +80,7 @@ const UI = (() => {
     const g2 = el('div', 'lamp-group');
     g2.appendChild(el('h3', 'group-title', 'Lampenkette — ' + CONFIG.lampChain.count + ' Lampen (parallel)'));
     const row2 = el('div', 'lamp-row wrap');
-    game.circuit.lamps.filter(l => l.switchId === 'S2')
-      .forEach(l => row2.appendChild(buildLamp(l.id)));
+    game.circuit.lamps.filter(l => l.channel.id === 'c1').forEach(l => row2.appendChild(buildLamp(l.id)));
     g2.appendChild(row2);
     ceiling.appendChild(g2);
 
@@ -94,7 +89,7 @@ const UI = (() => {
     wall.appendChild(buildFuse());
     game.circuit.switches.forEach(sw => wall.appendChild(buildSwitch(sw)));
 
-    /* ---------------- Diagnose-Panel ---------------- */
+    /* Diagnose-Panel */
     const aside = el('aside', 'panel card');
     layout.appendChild(aside);
     aside.appendChild(el('h3', 'panel-title', icon('clip') + '<span>Diagnoseliste</span>'));
@@ -103,28 +98,23 @@ const UI = (() => {
     aside.appendChild(list);
     aside.appendChild(el('div', 'hint', icon('bulb') + '<span><strong>Meister-Regel:</strong> Erst Sichtprüfung &amp; Einschalten — dann Messen.</span>'));
 
-    /* Detail-Overlay */
     const overlay = el('div', 'overlay hidden'); overlay.id = 'overlay';
     overlay.onclick = e => { if (e.target === overlay) closeDetail(); };
     document.body.appendChild(overlay);
   }
 
-  /* --- Lampe --------------------------------------------------------------*/
   function buildLamp(lampId) {
     const lamp = game.circuit.lamps.find(l => l.id === lampId);
-    const box = el('div', 'lamp');
-    box.dataset.lamp = lampId;
-    box.innerHTML =
-      '<div class="bulb"><div class="glow"></div><div class="filament"></div></div>' +
+    const box = el('div', 'lamp'); box.dataset.lamp = lampId;
+    box.innerHTML = '<div class="bulb"><div class="glow"></div><div class="filament"></div></div>' +
       '<div class="lamp-label">' + lamp.label + '</div>';
     const open = el('button', 'btn tiny', icon('search') + '<span>Öffnen</span>');
-    open.onclick = () => openDetail(lampId);   // NUR hier: Fehlersuche
+    open.onclick = () => openDetail(lampId);
     box.appendChild(open);
     refs.lamps[lampId] = box;
     return box;
   }
 
-  /* --- Sicherung ----------------------------------------------------------*/
   function buildFuse() {
     const wrap = el('div', 'device fuse-box');
     wrap.appendChild(el('div', 'device-title', icon('zap') + '<span>' + game.circuit.fuse.label + '</span>'));
@@ -138,7 +128,6 @@ const UI = (() => {
     return wrap;
   }
 
-  /* --- Schalter (Serien- oder Ausschalter) --------------------------------*/
   function buildSwitch(sw) {
     const wrap = el('div', 'device');
     wrap.appendChild(el('div', 'device-title', icon('sliders') + '<span>' + sw.label + '</span>'));
@@ -155,7 +144,7 @@ const UI = (() => {
     return wrap;
   }
 
-  /* --- Visuelle Aktualisierung (sofort, aus der reinen Auswertung) -------*/
+  /* --- Visuelle Aktualisierung (sofort) ---------------------------------*/
   function refresh() {
     const lit = Simulation.evaluate(game.circuit);
     for (const id in refs.lamps) {
@@ -165,8 +154,7 @@ const UI = (() => {
     refs.fuse.classList.toggle('on', game.circuit.fuse.isOn);
     for (const key in refs.channels) {
       const [sid, cid] = key.split(':');
-      const ch = Simulation.getChannel(game.circuit, sid, cid);
-      refs.channels[key].classList.toggle('on', ch.isOn);
+      refs.channels[key].classList.toggle('on', Simulation.getChannel(game.circuit, sid, cid).isOn);
     }
     renderDiagList();
     renderStatus();
@@ -175,13 +163,12 @@ const UI = (() => {
   function renderStatus() {
     const s = document.getElementById('status');
     if (!s) return;
-    const total = game.round.realDefects.length;
-    const found = game.correctDiagnosisCount();
+    const total = game.totalFaults(), found = game.foundCount();
     s.classList.toggle('solved', game.solved);
     if (game.solved) {
-      s.innerHTML = icon('check') + '<span><strong>Runde gelöst!</strong> Alle Fehler behoben &amp; korrekt diagnostiziert.</span>';
+      s.innerHTML = icon('check') + '<span><strong>Runde gelöst!</strong> Alle Lampen leuchten.</span>';
     } else {
-      s.innerHTML = icon('tool') + '<span>Echte Defekte: <strong>' + found + ' / ' + total + '</strong> korrekt diagnostiziert</span>';
+      s.innerHTML = icon('tool') + '<span>Fehler behoben: <strong>' + found + ' / ' + total + '</strong></span>';
     }
   }
 
@@ -189,17 +176,10 @@ const UI = (() => {
     const ul = document.getElementById('diag-list');
     if (!ul) return;
     ul.innerHTML = '';
-    const entries = Object.entries(game.diagnoses).filter(([, t]) => t && t !== 'none');
-    if (entries.length === 0) {
-      ul.appendChild(el('li', 'empty', 'Noch keine Defekte eingetragen.'));
-      return;
-    }
-    entries.forEach(([lampId, type]) => {
-      const lamp = game.circuit.lamps.find(l => l.id === lampId);
-      const correct = Simulation.actualDefect(game.circuit, lamp) === type;
-      const li = el('li', correct ? 'good' : 'bad',
-        icon(correct ? 'check' : 'x') + '<span><strong>' + lamp.label + '</strong> — ' + defectLabel(type) + '</span>');
-      ul.appendChild(li);
+    if (game.found.length === 0) { ul.appendChild(el('li', 'empty', 'Noch keine Fehler gefunden.')); return; }
+    game.found.forEach(f => {
+      ul.appendChild(el('li', 'good',
+        icon('check') + '<span><strong>' + FT()[f.type].short + '</strong><br><span class="loc">' + f.label + '</span></span>'));
     });
   }
 
@@ -213,13 +193,13 @@ const UI = (() => {
     card.innerHTML =
       '<div class="card-head"><h2>' + icon('search') + '<span>' + lamp.label + '</span></h2>' +
       '<button class="icon-btn" id="close-x" aria-label="Schließen">' + icon('x') + '</button></div>' +
-      '<p class="muted">Sichtprüfung → Klemmen → Messgerät → Glühwendel. Dann Diagnose stellen.</p>';
+      '<p class="muted">Prüfen: Sichtprüfung → Klemmen → Messgerät → Glühwendel. Dann Diagnose stellen.</p>';
 
     const tools = el('div', 'tools');
-    tools.appendChild(toolBtn('eye',   'Sichtprüfung', () => visualCheck(lamp)));
-    tools.appendChild(toolBtn('tool',  'Klemmen prüfen', () => terminalCheck(lamp)));
-    tools.appendChild(toolBtn('gauge', 'Messgerät anlegen', () => measure(lamp)));
-    tools.appendChild(toolBtn('bulb',  'Glühwendel ansehen', () => filamentCheck(lamp)));
+    tools.appendChild(toolBtn('eye',   'Sichtprüfung',        () => setReadout(visualText(lamp))));
+    tools.appendChild(toolBtn('tool',  'Klemmen prüfen',      () => setReadout(terminalText(lamp))));
+    tools.appendChild(toolBtn('gauge', 'Messgerät anlegen',   () => setReadout(measurementText(lamp))));
+    tools.appendChild(toolBtn('bulb',  'Glühwendel ansehen',  () => setReadout(filamentText(lamp))));
     card.appendChild(tools);
 
     const out = el('div', 'readout'); out.id = 'readout';
@@ -229,14 +209,12 @@ const UI = (() => {
     const diag = el('div', 'diagnose');
     diag.appendChild(el('h3', null, 'Diagnose stellen'));
     const btns = el('div', 'diag-btns');
-    btns.appendChild(diagBtn('Glühwendel defekt', () => submit(lamp, 'filament')));
-    btns.appendChild(diagBtn('Kabelbruch (Verkabelung)', () => submit(lamp, 'wire')));
-    btns.appendChild(diagBtn('Kein Defekt – war nur aus', () => submit(lamp, 'none'), 'ghost'));
+    FAULT_ORDER.forEach(t => btns.appendChild(diagBtn(FT()[t].short, () => submit(lamp, t), 'accent')));
     diag.appendChild(btns);
+    diag.appendChild(diagBtn('Kein Defekt – war nur ausgeschaltet', () => submit(lamp, 'none'), 'ghost wide'));
     card.appendChild(diag);
 
-    card.appendChild(el('div', 'feedback', ''));
-    card.querySelector('.feedback').id = 'feedback';
+    card.appendChild(el('div', 'feedback', '')).id = 'feedback';
 
     overlay.innerHTML = '';
     overlay.appendChild(card);
@@ -247,47 +225,61 @@ const UI = (() => {
   function diagBtn(label, fn, extra) { const b = el('button', 'btn ' + (extra || 'accent'), '<span>' + label + '</span>'); b.onclick = fn; return b; }
   function setReadout(html) { document.getElementById('readout').innerHTML = html; }
 
-  function visualCheck(lamp) {
-    const fuse = game.circuit.fuse.isOn;
-    const ch = Simulation.getChannel(game.circuit, lamp.switchId, lamp.channelId);
-    setReadout(
-      'Sicherung: <b class="' + (fuse ? 'ok' : 'no') + '">' + (fuse ? 'EIN' : 'AUS') + '</b><br>' +
-      'Zuständige ' + ch.label + ': <b class="' + (ch.isOn ? 'ok' : 'no') + '">' + (ch.isOn ? 'EIN' : 'AUS') + '</b>' +
-      (!fuse || !ch.isOn ? '<br><span class="warn">Zuerst einschalten, bevor du misst!</span>' : '')
-    );
+  /* Prüf-Werkzeuge — liefern wahrheitsgemäße Befunde aus dem Zustand */
+  function visualText(lamp) {
+    const c = game.circuit;
+    const parts = [
+      'Sicherung: <b class="' + (c.fuse.isOn ? 'ok' : 'no') + '">' + (c.fuse.isOn ? 'EIN' : 'AUS') + '</b>',
+      'Zuständige ' + lamp.channel.label + ': <b class="' + (lamp.channel.isOn ? 'ok' : 'no') + '">' + (lamp.channel.isOn ? 'EIN' : 'AUS') + '</b>',
+    ];
+    const visible = [];
+    if (c.fuse.fault === 'sicherung_defekt') visible.push('LS-Kipphebel ist herausgesprungen (ausgelöst)');
+    if (lamp.socket.fault === 'fassung_defekt') visible.push('Lampe sitzt sichtbar locker in der Fassung');
+    let s = parts.join('<br>');
+    if (visible.length) s += '<br><span class="warn">Sichtbar: ' + visible.join('; ') + '</span>';
+    if (!c.fuse.isOn || !lamp.channel.isOn) s += '<br><span class="warn">Zuerst einschalten, bevor du misst!</span>';
+    return s;
   }
-  function terminalCheck(lamp) {
-    const ok = game.circuit.wires[lamp.wireId].intact;
-    setReadout('Klemmen/Leitung: <b class="' + (ok ? 'ok' : 'no') + '">' +
-      (ok ? 'fest &amp; durchgängig' : 'Unterbrechung erkannt (Kabelbruch)') + '</b>');
+  function terminalText(lamp) {
+    const issues = [];
+    if (lamp.feed.fault === 'klemme_lose') issues.push('lose Klemme an „' + lamp.feed.label + '“');
+    if (lamp.socket.fault === 'fassung_defekt') issues.push('schlechter Fassungskontakt („' + lamp.socket.label + '“)');
+    return issues.length
+      ? 'Klemmstellen: <b class="no">' + issues.join('; ') + '</b>'
+      : 'Klemmen/Anschlüsse auf diesem Zweig: <b class="ok">fest &amp; sauber</b>';
   }
-  function measure(lamp) { setReadout(measurement(lamp)); }
-  function measurement(lamp) {
-    if (!game.circuit.fuse.isOn) return 'Keine Spannung — <b class="no">Sicherung (LS) ist AUS</b>.';
-    const ch = Simulation.getChannel(game.circuit, lamp.switchId, lamp.channelId);
-    if (!ch.isOn) return 'Keine Spannung an der Lampe — <b class="no">' + ch.label + ' steht auf AUS</b>.';
-    if (!game.circuit.wires[lamp.wireId].intact) return 'Spannung da, aber <b class="no">kein Durchgang — Leitung unterbrochen</b>.';
-    if (!lamp.filamentIntact) return 'Spannung &amp; Durchgang bis Fassung OK, aber <b class="no">Glühwendel ohne Durchgang</b>.';
-    return 'Spannung + Durchgang <b class="ok">OK</b> — Lampe müsste leuchten.';
+  function filamentText(lamp) {
+    const broken = lamp.filament.fault === 'gluehwendel';
+    return 'Glühwendel (' + lamp.label + '): <b class="' + (broken ? 'no' : 'ok') + '">' + (broken ? 'durchgebrannt' : 'intakt') + '</b>';
   }
-  function filamentCheck(lamp) {
-    setReadout('Glühwendel: <b class="' + (lamp.filamentIntact ? 'ok' : 'no') + '">' +
-      (lamp.filamentIntact ? 'intakt' : 'durchgebrannt') + '</b>');
+  function measurementText(lamp) {
+    const b = Simulation.firstBlock(game.circuit, lamp);
+    if (!b) return 'Spannung + Durchgang <b class="ok">OK</b> — Lampe müsste leuchten.';
+    if (b.kind === 'off')   return 'Keine Spannung — <b class="no">' + b.el.label + ' steht auf AUS</b>. (Erst einschalten!)';
+    if (b.kind === 'short')  return '<b class="no">Sicherung fliegt sofort wieder heraus</b> — Kurzschluss in einem <u>anderen</u> Zweig. Dort weitersuchen.';
+    switch (b.type) {
+      case 'sicherung_defekt': return 'Keine Spannung — <b class="no">LS-Schalter defekt/ausgelöst</b> (lässt sich nicht halten).';
+      case 'klemme_lose':      return 'Spannung schwankt, kein sicherer Durchgang — <b class="no">lose Klemme</b> („' + b.el.label + '“).';
+      case 'schalter_defekt':  return 'Schalter steht auf EIN, aber <b class="no">kein Durchgang — Schaltkontakt defekt</b> („' + b.el.label + '“).';
+      case 'kabelbruch':       return 'Spannung vorhanden, aber <b class="no">kein Durchgang — Kabelbruch</b> („' + b.el.label + '“).';
+      case 'kurzschluss':      return '<b class="no">Kurzschluss auf dieser Leitung</b> („' + b.el.label + '“) — Sicherung fliegt.';
+      case 'fassung_defekt':   return 'Bis zur Fassung Spannung + Durchgang, aber <b class="no">Fassungskontakt defekt</b> („' + b.el.label + '“).';
+      case 'gluehwendel':      return 'Fassung OK, aber <b class="no">Glühwendel ohne Durchgang</b> („' + b.el.label + '“).';
+    }
+    return '';
   }
 
+  /* Diagnose absenden -> Bewertung */
   function submit(lamp, claimed) {
-    const truth = Simulation.actualDefect(game.circuit, lamp);
+    const r = game.diagnose(lamp, claimed);
     const fb = document.getElementById('feedback');
-    if (claimed === 'none') {
-      if (truth === null) { game.setDiagnosis(lamp.id, 'none'); fb.innerHTML = ok('Richtig — kein technischer Defekt. Es war nur ausgeschaltet.'); }
-      else { fb.innerHTML = bad('Falsch — hier liegt sehr wohl ein echter Defekt vor. Nochmal messen!'); }
-    } else if (truth === null) {
-      fb.innerHTML = bad('<strong>Meister-Falle!</strong> Kein Defekt — der Schalter/die Sicherung war nur AUS. Erst Sichtprüfung &amp; Einschalten, dann Messen!');
-    } else if (claimed === truth) {
-      game.setDiagnosis(lamp.id, claimed);
-      fb.innerHTML = ok('Korrekt: ' + defectLabel(truth) + ' erkannt. In die Diagnoseliste übernommen.');
-    } else {
-      fb.innerHTML = bad('Nicht ganz — die Messung passt nicht zu „' + defectLabel(claimed) + '". Prüf nochmal genau.');
+    switch (r.result) {
+      case 'ok-none':    fb.innerHTML = ok('Richtig — kein technischer Defekt hier. Es war nur ausgeschaltet.'); break;
+      case 'wrong-none': fb.innerHTML = bad('Doch — hier liegt ein echter Fehler vor. Miss nochmal genau.'); break;
+      case 'trap':       fb.innerHTML = bad('<strong>Meister-Falle!</strong> Kein Defekt — nur ausgeschaltet. Erst Sichtprüfung &amp; Einschalten, dann Messen.'); break;
+      case 'short-elsewhere': fb.innerHTML = bad('Der Kurzschluss sitzt in einem <u>anderen</u> Zweig — dort weitersuchen.'); break;
+      case 'correct':    fb.innerHTML = ok('Korrekt: ' + FT()[r.type].label + ' — <strong>behoben!</strong>'); break;
+      case 'wrong':      fb.innerHTML = bad('Nicht ganz — die Messung passt nicht dazu. Tipp: Messgerät nutzen und dem Pfad folgen.'); break;
     }
     game.onChange();
   }
@@ -296,11 +288,6 @@ const UI = (() => {
 
   const ok  = m => '<div class="fb ok-fb">' + icon('check') + '<span>' + m + '</span></div>';
   const bad = m => '<div class="fb bad-fb">' + icon('alert') + '<span>' + m + '</span></div>';
-  function defectLabel(t) {
-    return t === 'filament' ? 'Glühwendel defekt'
-         : t === 'wire'     ? 'Kabelbruch (Verkabelung)'
-         : 'Kein Defekt';
-  }
 
   return { init, refresh };
 })();
