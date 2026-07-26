@@ -34,9 +34,9 @@ var Installation = (function () {
   function newRoom() { room = pick(ROOMS); return { W: W, H: H, door: door, zones: zones, room: room }; }
 
   function placeOk(kind, x, y) {
-    if (kind === 'schalter')  return inRect(x, y, zones.senkTuer) && inRect(x, y, zones.mitteW);
-    if (kind === 'steckdose') return notBehindDoor(x, y) && (inRect(x, y, zones.untenW) || inRect(x, y, zones.mitteW));
-    if (kind === 'leuchte')   return y <= 22 && x >= 150 && x <= 300;
+    if (kind === 'schalter')  return inRect(x, y, zones.senkTuer) && Math.abs(y - hy(105)) <= 10;  // ~105 cm neben der Tür
+    if (kind === 'steckdose') return notBehindDoor(x, y) && Math.abs(y - hy(30)) <= 6;              // mittig 30 cm über dem Boden
+    if (kind === 'leuchte')   return y <= 22 && x >= 150 && x <= 300;                                // Decke, mittig
     return false;
   }
 
