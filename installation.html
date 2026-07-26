@@ -124,10 +124,15 @@
 
   function schlitz(x,y){
     var mk=document.getElementById('markers');
-    var ln=el('line',{x1:vpoint.x,y1:vpoint.y,x2:x,y2:y,stroke:'#9aa0a8','stroke-width':4,'stroke-dasharray':'6 4'});
-    ln.style.opacity='0'; ln.style.transition='opacity .45s ease';
-    mk.appendChild(ln);
-    requestAnimationFrame(function(){ ln.style.opacity='0.75'; });
+    // Schlitze laufen NUR waagerecht/senkrecht in der MITTE der Installationszonen (keine Diagonale, DIN 18015-3)
+    var yc = y<=60 ? 30 : (y<190 ? 145 : 230);   // Mitte der oberen / mittleren / unteren waagerechten Zone
+    var vx = 130;                                 // Mitte der senkrechten Zone (neben Tür)
+    var pts = [[vpoint.x,vpoint.y],[vx,yc],[x,yc],[x,y]];
+    var d = pts.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' ');
+    var path=el('path',{d:d,fill:'none',stroke:'#9aa0a8','stroke-width':4,'stroke-dasharray':'6 4','stroke-linejoin':'round','stroke-linecap':'round'});
+    path.style.opacity='0'; path.style.transition='opacity .45s ease';
+    mk.appendChild(path);
+    requestAnimationFrame(function(){ path.style.opacity='0.8'; });
   }
   function marker(x,y,ok,label){
     var mk=document.getElementById('markers');
