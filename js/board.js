@@ -40,12 +40,13 @@ var Board = (function () {
     var agg = {};
     list.forEach(function (e) {
       var nm = (e.name || e.n || 'Anonym'), md = (e.mode || e.m);
-      agg[nm] = agg[nm] || { name: nm, werkstatt: 0, lampen: 0, protokoll: 0 };
+      agg[nm] = agg[nm] || { name: nm, werkstatt: 0, lampen: 0, protokoll: 0, installation: 0 };
       if (md === 'werkstatt') agg[nm].werkstatt++;
       else if (md === 'lampen') agg[nm].lampen++;
       else if (md === 'protokoll') agg[nm].protokoll++;
+      else if (md === 'installation') agg[nm].installation++;
     });
-    return Object.keys(agg).map(function (k) { var r = agg[k]; r.total = r.werkstatt + r.lampen + r.protokoll; return r; })
+    return Object.keys(agg).map(function (k) { var r = agg[k]; r.total = r.werkstatt + r.lampen + r.protokoll + r.installation; return r; })
       .sort(function (a, b) { return b.total - a.total; });
   }
 

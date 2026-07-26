@@ -89,6 +89,18 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </span>
       </a>
+
+      <a class="mode-card" href="installation.html">
+        <div class="mode-ic" style="background:rgba(245,166,35,.12);border:1px solid rgba(245,166,35,.3)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#f5a623" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
+        </div>
+        <div class="mode-tag">Installation<span class="beta">BETA</span></div>
+        <h2>Installations-Modus</h2>
+        <p>Setze Schalter, Steckdosen &amp; Leuchten an der Wand — nach den Installationszonen (DIN 18015-3). Falsche Position wird rot, am Ende ein Beliebtheits-Score.</p>
+        <span class="mode-go">Raum einrichten
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </span>
+      </a>
     </div>
 
     <section class="board-wrap card">
@@ -154,7 +166,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="js/board.js?v=3"></script>
+<script src="js/board.js?v=4"></script>
 <script>
 (function(){
   var input = document.getElementById('pname');
@@ -162,10 +174,10 @@
   function esc(s){ return String(s).replace(/[<>&"]/g, function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
   function renderRows(rows){
     var tb = document.querySelector('#board-table tbody');
-    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Protokoll</th><th class="num">Gesamt</th></tr>';
-    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="6" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
+    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Werkstatt</th><th class="num">Lampen</th><th class="num">Protokoll</th><th class="num">Install.</th><th class="num">Gesamt</th></tr>';
+    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="7" class="board-empty">Noch keine Erfolge — leg los und finde Fehler!</td></tr>'; return; }
     tb.innerHTML = head + rows.slice(0,20).map(function(r,i){
-      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num">'+r.protokoll+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
+      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num">'+r.protokoll+'</td><td class="num">'+(r.installation||0)+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
     }).join('');
   }
   function renderBoard(){
