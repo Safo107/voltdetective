@@ -11,7 +11,7 @@
 <link rel="canonical" href="https://spiel.elektrogenius.de/installation.html">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=2">
 <style>
   #wallwrap { display: flex; justify-content: center; padding: 8px; }
   #wall { width: 100%; max-width: 760px; height: auto; border-radius: 12px; cursor: crosshair; touch-action: none; background: #0e1a2b; }
@@ -94,13 +94,13 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="js/board.js?v=4"></script>
-<script src="js/installation.js?v=3"></script>
+<script src="js/installation.js?v=4"></script>
 <script>
 (function(){
   var NS='http://www.w3.org/2000/svg';
   var svg=document.getElementById('wall');
   var geom=Installation.geom, door=geom.door;
-  var vpoint={ x:door.x+door.w+20, y:40 };   // Verteiler-/Dose-Bezug für Schlitze
+  var vpoint={ x:door.x+door.w+15, y:40 };   // Verteiler-Bezug in der senkrechten Zone (15 cm neben Tür)
   var LABELS={ schalter:'S', steckdose:'SD', leuchte:'L' };
   var st={};
 
@@ -111,7 +111,7 @@
     while(svg.firstChild) svg.removeChild(svg.firstChild);
     var z=geom.zones;
     svg.appendChild(el('rect',{x:0,y:0,width:400,height:260,fill:'#12233a'}));
-    ['untenW','mitteW','obenW'].forEach(function(k){ var r=z[k]; svg.appendChild(el('rect',{x:r.x,y:r.y,width:r.w,height:r.h,fill:'rgba(0,198,255,0.16)',stroke:'rgba(0,198,255,0.5)','stroke-width':0.6})); });
+    ['untenW','obenW'].forEach(function(k){ var r=z[k]; svg.appendChild(el('rect',{x:r.x,y:r.y,width:r.w,height:r.h,fill:'rgba(0,198,255,0.16)',stroke:'rgba(0,198,255,0.5)','stroke-width':0.6})); });
     var s=z.senkTuer; svg.appendChild(el('rect',{x:s.x,y:s.y,width:s.w,height:s.h,fill:'rgba(245,166,35,0.16)',stroke:'rgba(245,166,35,0.5)','stroke-width':0.6}));
     // Fenster erzeugt ebenfalls senkrechte Zonen (10–30 cm daneben)
     [255, 370].forEach(function(fx){ svg.appendChild(el('rect',{x:fx,y:0,width:20,height:260,fill:'rgba(245,166,35,0.16)',stroke:'rgba(245,166,35,0.5)','stroke-width':0.6})); });
@@ -130,20 +130,23 @@
     (function(){
       function dim(xx,yy,txt,anchor){ var t=el('text',{x:xx,y:yy,fill:'#9fb4cc','font-size':7.5,'text-anchor':anchor||'start','font-family':'Barlow, sans-serif'}); t.textContent=txt; svg.appendChild(t); }
       function refLine(yy,txt){ svg.appendChild(el('line',{x1:0,y1:yy,x2:400,y2:yy,stroke:'#5b7893','stroke-width':0.5,'stroke-dasharray':'3 3'})); dim(398,yy-2.5,txt,'end'); }
-      refLine(230,'Steckdose · 30 cm');
+      refLine(230,'Steckdose · 30 cm über Boden');
       refLine(155,'Schalter · 105 cm');
-      dim(3,222,'15–45 cm'); dim(3,137,'100–130 cm'); dim(3,27,'15–45 cm u. Decke');
-      dim(142,250,'senkr. 10–30 cm'); dim(200,255,'Wand 4,00 m × 2,60 m','middle');
+      dim(3,214,'30 cm ± 15 (Boden)'); dim(3,12,'30 cm ± 15 (Decke)');
+      svg.appendChild(el('line',{x1:110,y1:168,x2:125,y2:168,stroke:'#9fb4cc','stroke-width':0.8}));
+      dim(117,177,'15 cm','middle');
+      dim(200,255,'Wand 4,00 m × 2,60 m','middle');
     })();
     svg.appendChild(el('g',{id:'markers'}));
   }
 
   function schlitz(x,y){
     var mk=document.getElementById('markers');
-    // Schlitze laufen NUR waagerecht/senkrecht in der MITTE der Installationszonen (keine Diagonale, DIN 18015-3)
-    var yc = y<=60 ? 30 : (y<190 ? 145 : 230);   // Mitte der oberen / mittleren / unteren waagerechten Zone
-    var vx = 130;                                 // Mitte der senkrechten Zone (neben Tür)
-    var pts = [[vpoint.x,vpoint.y],[vx,yc],[x,yc],[x,y]];
+    // Schlitze laufen NUR waagerecht/senkrecht in den Zonen (keine Diagonale, DIN 18015-3)
+    var vx = 125;                                 // senkrechte Zone (15 cm neben Tür)
+    var pts;
+    if (y > 130 && y < 195) { pts = [[vpoint.x,vpoint.y],[vx,y],[x,y]]; }                              // Schalter (105 cm): senkrecht + kurzer Stich
+    else { var yc = y <= 130 ? 30 : 230; pts = [[vpoint.x,vpoint.y],[vx,yc],[x,yc],[x,y]]; }           // obere / untere waagerechte Zone
     var d = pts.map(function(p,i){ return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1); }).join(' ');
     var path=el('path',{d:d,fill:'none',stroke:'#9aa0a8','stroke-width':4,'stroke-dasharray':'6 4','stroke-linejoin':'round','stroke-linecap':'round'});
     path.style.opacity='0'; path.style.transition='opacity .45s ease';
@@ -179,7 +182,7 @@
   }
 
   function startPlacing(){
-    st.queue=[{kind:'schalter',label:'den <strong>Lichtschalter</strong> (senkrechte Zone neben Tür, ~105 cm)'}];
+    st.queue=[{kind:'schalter',label:'den <strong>Lichtschalter</strong> (15 cm neben der Tür, 105 cm hoch)'}];
     for(var i=0;i<st.count;i++) st.queue.push({kind:'steckdose',label:'<strong>Steckdose '+(i+1)+'/'+st.count+'</strong> (mittig 30 cm über dem Boden)'});
     st.queue.push({kind:'leuchte',label:'den <strong>Leuchtenauslass</strong> (Decke, mittig)'});
     st.qIdx=0; st.firstTry=[]; st.hits=0; st.total=st.queue.length;

@@ -11,10 +11,9 @@ var Installation = (function () {
   function hy(cm) { return H - cm; }             // Höhe über OKFF -> SVG-y
 
   var zones = {
-    untenW: { label: 'untere waagerechte Zone · 15–45 cm', x: 0, y: hy(45), w: W, h: 30 },
-    mitteW: { label: 'mittlere waagerechte Zone · 100–130 cm', x: 0, y: hy(130), w: W, h: 30 },
-    obenW:  { label: 'obere waagerechte Zone · 15–45 cm unter Decke', x: 0, y: 15, w: W, h: 30 },
-    senkTuer: { label: 'senkrechte Zone neben Tür · 10–30 cm', x: door.x + door.w + 10, y: 0, w: 20, h: H }
+    untenW: { label: 'untere waagerechte Zone · 30 cm über Boden (± 15)', x: 0, y: hy(45), w: W, h: 30 },
+    obenW:  { label: 'obere waagerechte Zone · 30 cm unter Decke (± 15)', x: 0, y: 15, w: W, h: 30 },
+    senkTuer: { label: 'senkrechte Zone neben Tür', x: door.x + door.w + 10, y: 0, w: 20, h: H }
   };
 
   // Räume mit Mindest-Steckdosenzahl (vereinfachte Ausstattungswerte, DIN 18015-2)
@@ -34,9 +33,9 @@ var Installation = (function () {
   function newRoom() { room = pick(ROOMS); return { W: W, H: H, door: door, zones: zones, room: room }; }
 
   function placeOk(kind, x, y) {
-    if (kind === 'schalter')  return inRect(x, y, zones.senkTuer) && Math.abs(y - hy(105)) <= 10;  // ~105 cm neben der Tür
-    if (kind === 'steckdose') return notBehindDoor(x, y) && Math.abs(y - hy(30)) <= 6;              // mittig 30 cm über dem Boden
-    if (kind === 'leuchte')   return y <= 22 && x >= 150 && x <= 300;                                // Decke, mittig
+    if (kind === 'schalter')  return Math.abs(x - (door.x + door.w + 15)) <= 6 && Math.abs(y - hy(105)) <= 8;  // 15 cm neben Tür, 105 cm hoch
+    if (kind === 'steckdose') return notBehindDoor(x, y) && Math.abs(y - hy(30)) <= 6;                          // mittig 30 cm über Boden
+    if (kind === 'leuchte')   return y <= 22 && x >= 150 && x <= 300;                                            // Decke, mittig
     return false;
   }
 
