@@ -43,7 +43,7 @@
   <main id="content">
     <div class="intro">
       <h1 class="intro-title">Installation planen &amp; verlegen <span style="font-size:12px;font-weight:900;color:var(--navy);background:var(--cyan);border-radius:6px;padding:2px 8px">BETA</span></h1>
-      <p class="intro-sub">Wähle die Steckdosen-Anzahl (Mindestanzahl beachten!), dann setze die Bauteile der Reihe nach in die richtigen <strong>Installationszonen (DIN 18015-3)</strong>. Falsche Position = Fehler.</p>
+      <p class="intro-sub">Wähle die Steckdosen-Anzahl (Mindestanzahl beachten!), dann setze die Bauteile der Reihe nach in die richtigen <strong>Installationszonen (DIN 18015-3)</strong>. Falsche Position = Fehler. Ein richtiger Klick <strong>fräst die Dose</strong> und schlitzt automatisch in den Zonen.</p>
     </div>
 
     <div class="ins-head">
@@ -153,6 +153,10 @@
     mk.appendChild(path);
     requestAnimationFrame(function(){ path.style.opacity='0.8'; });
   }
+  function dose(x,y){
+    // gefräste Gerätedose (Kasten), in der das Bauteil sitzt
+    document.getElementById('markers').appendChild(el('rect',{x:x-9,y:y-9,width:18,height:18,rx:3,fill:'#0e1a2b',stroke:'#7a95b0','stroke-width':1.4}));
+  }
   function marker(x,y,ok,label){
     var mk=document.getElementById('markers');
     var c=el('circle',{cx:x,cy:y,r:9,fill:ok?'rgba(61,220,132,0.95)':'rgba(255,92,92,0.95)',stroke:'#fff','stroke-width':1.5});
@@ -196,7 +200,7 @@
     if(st.step!=='place' || st.qIdx>=st.queue.length) return;
     var p=toWall(evt), it=st.queue[st.qIdx];
     if(Installation.placeOk(it.kind,p.x,p.y)){
-      schlitz(p.x,p.y); marker(p.x,p.y,true,LABELS[it.kind]||'?');
+      dose(p.x,p.y); schlitz(p.x,p.y); marker(p.x,p.y,true,LABELS[it.kind]||'?');
       if(st.firstTry[st.qIdx]!==false){ st.hits++; document.getElementById('hits').textContent=st.hits; }
       st.qIdx++;
       if(st.qIdx>=st.queue.length) finish(); else renderStep();
