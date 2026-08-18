@@ -9,12 +9,13 @@
  * ==========================================================================*/
 var Installation = (function () {
   var WW = 400, WH = 260;                          // Wand 4,00 m × 2,60 m
-  var DEPTH = 170;                                 // sichtbare Raumtiefe (1,70 m) für 3D
+  var DEPTH = 210;                                 // sichtbare Raumtiefe (2,10 m) für 3D
   var door  = { x: 45,  w: 90, h: 200 };           // Tür an der Hauptwand (0,90 × 2,00 m)
   var win   = { x: 250, w: 95, sill: 90, h: 80 };  // Fenster (Brüstung 90 cm, 80 cm hoch)
   var vx    = door.x + door.w + 15;                // senkrechte Zone: 15 cm neben Tür
   var vpoint = { x: vx, y: 205 };                  // Abzweig/Unterverteilung oben in der senkr. Zone
   var herd  = { x1: 270, x2: 350, y: 50 };         // Herdanschlussdose (Drehstrom 400 V) ~50 cm
+  var rauch = { x: 245, z: 55 };                    // Rauchmelder-Zielbereich an der Decke (mittig, versetzt zur Leuchte)
 
   // Installationszonen nach DIN 18015-3
   var zones = {
@@ -27,12 +28,12 @@ var Installation = (function () {
 
   // Räume mit Mindest-Steckdosenzahl (vereinfachte Ausstattungswerte, DIN 18015-2)
   var ROOMS = [
-    { name: 'Wohnzimmer', minSteck: 5 },
-    { name: 'Schlafzimmer', minSteck: 4 },
-    { name: 'Kinderzimmer', minSteck: 4 },
+    { name: 'Wohnzimmer', minSteck: 5, extras: ['netz'] },
+    { name: 'Schlafzimmer', minSteck: 4, extras: ['rauch'] },
+    { name: 'Kinderzimmer', minSteck: 4, extras: ['rauch'] },
     { name: 'Küche (Arbeitsbereich)', minSteck: 5, extras: ['herd'] },
-    { name: 'Arbeitszimmer', minSteck: 4 },
-    { name: 'Flur / Diele', minSteck: 2, extras: ['bewegung'] }
+    { name: 'Arbeitszimmer', minSteck: 4, extras: ['netz'] },
+    { name: 'Flur / Diele', minSteck: 2, extras: ['bewegung', 'rauch'] }
   ];
 
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -47,6 +48,8 @@ var Installation = (function () {
     if (kind === 'leuchte')   return Math.abs(wx - WW / 2) <= 60 && Math.abs(wy - DEPTH / 2) <= 45;             // Deckenauslass mittig (wy = Tiefe wz auf der Deckenebene)
     if (kind === 'herd')      return wx >= herd.x1 && wx <= herd.x2 && Math.abs(wy - herd.y) <= 9;              // Herdanschluss ~50 cm
     if (kind === 'bewegung')  return Math.abs(wx - vx) <= 9 && Math.abs(wy - 110) <= 12;                        // Bewegungsmelder neben Tür ~110 cm
+    if (kind === 'netz')      return notBehindDoor(wx, wy) && Math.abs(wy - 30) <= 7 && wx > 8 && wx < WW - 8;   // Datendose wie Steckdose, 30 cm
+    if (kind === 'rauch')     return Math.abs(wx - rauch.x) <= 40 && Math.abs(wy - rauch.z) <= 32;              // Rauchmelder an der Decke (wy = Tiefe wz)
     return false;
   }
 
@@ -64,7 +67,7 @@ var Installation = (function () {
 
   return {
     newRoom: newRoom, placeOk: placeOk, beliebtheit: beliebtheit,
-    geom: { WW: WW, WH: WH, DEPTH: DEPTH, door: door, win: win, vx: vx, vpoint: vpoint, herd: herd, zones: zones },
+    geom: { WW: WW, WH: WH, DEPTH: DEPTH, door: door, win: win, vx: vx, vpoint: vpoint, herd: herd, rauch: rauch, zones: zones },
     rooms: ROOMS
   };
 })();
