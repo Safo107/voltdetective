@@ -40,7 +40,7 @@ var Installation = (function () {
   function notBehindDoor(wx, wy) { return !(wx >= door.x && wx <= door.x + door.w && wy <= door.h); }
 
   var room;
-  function newRoom() { room = pick(ROOMS); return { room: room }; }
+  function newRoom(name) { room = name ? (ROOMS.filter(function(r){ return r.name===name; })[0] || pick(ROOMS)) : pick(ROOMS); return { room: room }; }
 
   function placeOk(kind, wx, wy) {
     if (kind === 'schalter')  return Math.abs(wx - vx) <= 7 && Math.abs(wy - 105) <= 9;                         // 15 cm neben Tür, 105 cm

@@ -55,7 +55,10 @@
 
     <div class="ins-head">
       <button class="btn tiny primary" id="b-new">Neuer Raum</button>
-      <button class="btn tiny" id="b-thermal" style="display:none">Wärmebild an</button>
+      <button class="btn tiny" id="b-apartment">Ganze Wohnung</button>
+      <button class="btn tiny" id="b-thermal" style="display:none">Wärmebild</button>
+      <button class="btn tiny" id="b-measure" style="display:none">Messen (Duspol)</button>
+      <button class="btn tiny primary" id="b-next" style="display:none">Nächster Raum →</button>
       <span class="ins-score">Beim 1. Versuch getroffen: <strong id="hits">0</strong> / <span id="total">0</span></span>
       <span class="ins-prog" id="prog"></span>
     </div>
@@ -100,7 +103,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="js/board.js?v=4"></script>
-<script src="js/installation.js?v=9"></script>
+<script src="js/installation.js?v=10"></script>
 <script>
 (function(){
   var NS='http://www.w3.org/2000/svg';
@@ -358,7 +361,7 @@
       svg.insertBefore(n,mk);
     }
   }
-  function toggleLight(){ if(st.thermalOn) return; setLight(!st.lightOn); }
+  function toggleLight(){ if(st.mode!=='none') return; setLight(!st.lightOn); }
   // Wärmebild
   function drawThermal(){
     removeById('thermal');
@@ -369,13 +372,29 @@
     if(st.hotFound && st.hotSocket) g.appendChild(el('circle',{cx:st.hotSocket.x,cy:st.hotSocket.y,r:13,fill:'none',stroke:'#3ddc84','stroke-width':2}));
     svg.insertBefore(g,document.getElementById('markers'));
   }
-  function toggleThermal(){
-    st.thermalOn=!st.thermalOn;
-    var btn=document.getElementById('b-thermal'); if(btn) btn.textContent=st.thermalOn?'Wärmebild aus':'Wärmebild an';
-    if(st.thermalOn){ setLight(false); drawThermal(); tipAt(310,32,'Wärmebild: finde die heiße, überlastete Steckdose.','#ff8a5c'); }
-    else removeById('thermal');
-  }
+  function markRing(hs,color){ document.getElementById('markers').appendChild(el('circle',{cx:hs.x,cy:hs.y,r:13,fill:'none',stroke:color,'stroke-width':2})); }
   function markHotFound(hs){ st.hotFound=true; drawThermal(); tipAt(hs.x,hs.y,'Überlast gefunden! Diese Dose wird zu heiß.','#3ddc84'); }
+  function measureDevice(hs){
+    if(st.fault && hs===st.fault.hs){
+      st.faultFound=true;
+      var msg = st.fault.type==='unterbrechung'?'0 V — Unterbrechung! Kein Strom.'
+              : st.fault.type==='pe'?'230 V, aber PE fehlt — gefährlich!'
+              : 'Kurzschluss — Sicherung gefallen!';
+      tipAt(hs.x,hs.y,'Fehler gefunden: '+msg,'#3ddc84'); markRing(hs,'#3ddc84');
+    } else {
+      var r = hs.kind==='herd'?'400 V 3~ · i.O.' : hs.kind==='netz'?'Datendose · 0 V' : hs.kind==='rauch'?'Batterie ok' : '230 V ~ · i.O.';
+      tipAt(hs.x,hs.y,r,'#7fd1ff');
+    }
+  }
+  function setMode(m){
+    st.mode = (st.mode===m)?'none':m;
+    removeById('thermal');
+    var bt=document.getElementById('b-thermal'), bm=document.getElementById('b-measure');
+    if(bt) bt.textContent = st.mode==='thermal'?'Wärmebild aus':'Wärmebild';
+    if(bm) bm.textContent = st.mode==='measure'?'Messen aus':'Messen (Duspol)';
+    if(st.mode==='thermal'){ setLight(false); drawThermal(); tipAt(310,32,'Wärmebild: finde die heiße, überlastete Steckdose.','#ff8a5c'); }
+    else if(st.mode==='measure'){ tipAt(310,32,'Duspol: klick Geräte zum Messen — finde den versteckten Fehler.','#7fd1ff'); }
+  }
 
   // ---- Ablauf --------------------------------------------------------------
   function renderProg(){
@@ -430,9 +449,13 @@
     clearTip();
     var hs=hitHotspot(evt);
     if(st.step==='done'){
-      if(st.thermalOn){
+      if(st.mode==='thermal'){
         if(hs && hs.type==='device' && hs.kind==='steckdose'){ if(hs===st.hotSocket) markHotFound(hs); else tipAt(hs.x,hs.y,'Hier alles kühl — keine Überlast.','#4aa3ff'); }
         else if(hs) showInfo(hs);
+        return;
+      }
+      if(st.mode==='measure'){
+        if(hs && hs.type==='device') measureDevice(hs); else if(hs) showInfo(hs);
         return;
       }
       if(hs){ showInfo(hs); if(hs.type==='device' && (hs.kind==='schalter'||hs.kind==='leuchte'||hs.kind==='bewegung')) toggleLight(); }
@@ -461,16 +484,27 @@
     var b=Installation.beliebtheit(st.count, st.min, st.hits, st.total, furnFrac);
     var good=b.prozent>=60;
     var extra=uncovered.length? ' <span style="color:var(--no)">— keine Steckdose nahe: '+uncovered.join(', ')+'</span>' : ' <span style="color:var(--ok)">— alle Möbel versorgt</span>';
-    document.getElementById('verdict').innerHTML='<div class="fb '+(good?'ok-fb':'bad-fb')+'">Beliebtheit der Wohnung: <strong>'+b.prozent+'%</strong> — '+b.label+extra+'</div>';
-    document.getElementById('stepbox').innerHTML='<div><span class="step">Fertig!</span> Klicke <strong>Geräte &amp; Möbel</strong> zum Prüfen · <strong>Schalter/Leuchte</strong> schaltet das Licht · <strong>Wärmebild</strong> zeigt die überlastete Dose. „Neuer Raum" für die nächste Runde.</div>';
+    var head = camp ? 'Wohnung · Raum '+(camp.idx+1)+'/'+camp.rooms.length+' — '+st.room.name+': ' : 'Beliebtheit der Wohnung: ';
+    document.getElementById('verdict').innerHTML='<div class="fb '+(good?'ok-fb':'bad-fb')+'">'+head+'<strong>'+b.prozent+'%</strong> — '+b.label+extra+'</div>';
+    document.getElementById('stepbox').innerHTML='<div><span class="step">Fertig!</span> <strong>Messen (Duspol)</strong> findet den versteckten Fehler · <strong>Wärmebild</strong> die überlastete Dose · <strong>Schalter/Leuchte</strong> schaltet das Licht. Geräte &amp; Möbel sind anklickbar.</div>';
     document.getElementById('prog').innerHTML='';
-    st.step='done';
+    st.step='done'; st.mode='none';
     var socks=st.hotspots.filter(function(h){return h.type==='device'&&h.kind==='steckdose';});
-    st.hotSocket=socks.length? socks[Math.floor(Math.random()*socks.length)] : null;
-    st.hotFound=false; st.thermalOn=false;
-    var tb=document.getElementById('b-thermal'); if(tb){ tb.style.display=st.hotSocket?'':'none'; tb.textContent='Wärmebild an'; }
+    st.hotSocket=socks.length? socks[Math.floor(Math.random()*socks.length)] : null; st.hotFound=false;
+    var devs=st.hotspots.filter(function(h){return h.type==='device' && h.kind!=='netz' && h.kind!=='rauch';});
+    st.fault = devs.length? { hs: devs[Math.floor(Math.random()*devs.length)], type: ['unterbrechung','pe','kurzschluss'][Math.floor(Math.random()*3)] } : null; st.faultFound=false;
+    var tb=document.getElementById('b-thermal'); if(tb){ tb.style.display=st.hotSocket?'':'none'; tb.textContent='Wärmebild'; }
+    var bm=document.getElementById('b-measure'); if(bm){ bm.style.display=st.fault?'':'none'; bm.textContent='Messen (Duspol)'; }
     setLight(false);
     if(typeof Board!=='undefined') Board.add('installation');
+    var bn=document.getElementById('b-next');
+    if(camp){ camp.scores.push(b.prozent);
+      if(camp.idx < camp.rooms.length-1){ if(bn){ bn.style.display=''; bn.textContent='Nächster Raum ('+(camp.idx+2)+'/'+camp.rooms.length+') →'; } }
+      else { var avg=Math.round(camp.scores.reduce(function(a,c){return a+c;},0)/camp.scores.length);
+        document.getElementById('verdict').innerHTML+='<div class="fb '+(avg>=60?'ok-fb':'bad-fb')+'" style="margin-top:8px"><strong>Ganze Wohnung fertig!</strong> Ø-Beliebtheit über '+camp.rooms.length+' Räume: <strong>'+avg+'%</strong></div>';
+        camp=null; if(bn) bn.style.display='none';
+      }
+    } else if(bn) bn.style.display='none';
   }
 
   // ---- Legende (mit echten Icons) -----------------------------------------
@@ -483,16 +517,22 @@
   function iconSVG(kind){ var g=icon(kind); return g.innerHTML; }
 
   svg.addEventListener('click', onClick);
-  function start(){
-    var r=Installation.newRoom();
-    st={ step:'count', room:r.room, min:r.room.minSteck, count:r.room.minSteck, queue:[], qIdx:0, firstTry:[], hits:0, total:0, bom:{}, cable:0, hotspots:[], furnNeeds:[], lightOn:false, lampPt:null, thermalOn:false, hotSocket:null, hotFound:false };
+  var camp=null;
+  function start(name){
+    var r=Installation.newRoom(name);
+    st={ step:'count', room:r.room, min:r.room.minSteck, count:r.room.minSteck, queue:[], qIdx:0, firstTry:[], hits:0, total:0, bom:{}, cable:0, hotspots:[], furnNeeds:[], lightOn:false, lampPt:null, mode:'none', hotSocket:null, hotFound:false, fault:null, faultFound:false };
     document.getElementById('hits').textContent='0'; document.getElementById('total').textContent='0';
     document.getElementById('verdict').innerHTML='';
-    var tb=document.getElementById('b-thermal'); if(tb) tb.style.display='none';
+    ['b-thermal','b-measure','b-next'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
     drawScene(); renderStep(); renderBOM();
   }
-  document.getElementById('b-new').onclick = start;
-  document.getElementById('b-thermal').onclick = toggleThermal;
+  function startCamp(){ camp={ rooms:['Flur / Diele','Wohnzimmer','Küche (Arbeitsbereich)','Schlafzimmer','Kinderzimmer','Arbeitszimmer'], idx:0, scores:[] }; start(camp.rooms[0]); }
+  function nextRoom(){ if(camp){ camp.idx++; start(camp.rooms[camp.idx]); } }
+  document.getElementById('b-new').onclick = function(){ camp=null; start(); };
+  document.getElementById('b-apartment').onclick = startCamp;
+  document.getElementById('b-next').onclick = nextRoom;
+  document.getElementById('b-thermal').onclick = function(){ setMode('thermal'); };
+  document.getElementById('b-measure').onclick = function(){ setMode('measure'); };
   buildLegend(); start();
 })();
 </script>
