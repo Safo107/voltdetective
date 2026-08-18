@@ -136,6 +136,7 @@
   function ptsStr(a){ return a.map(function(p){ return p.x.toFixed(1)+','+p.y.toFixed(1); }).join(' '); }
   function f(p){ return p.x.toFixed(1)+' '+p.y.toFixed(1); }
   function polyMain(x1,x2,y1,y2,attrs){ attrs.points=ptsStr([pmain(x1,y1),pmain(x2,y1),pmain(x2,y2),pmain(x1,y2)]); return el('polygon',attrs); }
+  function polyLeft(z1,z2,y1,y2,attrs){ attrs.points=ptsStr([pleft(z1,y1),pleft(z2,y1),pleft(z2,y2),pleft(z1,y2)]); return el('polygon',attrs); }
   function box3d(x1,x2,z1,z2,h,ct,cf,cr){
     svg.appendChild(el('polygon',{points:ptsStr([iso(x2,0,z1),iso(x2,0,z2),iso(x2,h,z2),iso(x2,h,z1)]),fill:cr,stroke:'#26456a','stroke-width':0.8}));   // rechte Seite
     svg.appendChild(el('polygon',{points:ptsStr([iso(x1,0,z2),iso(x2,0,z2),iso(x2,h,z2),iso(x1,h,z2)]),fill:cf,stroke:'#26456a','stroke-width':0.8}));   // Front
@@ -165,7 +166,8 @@
     if(m){ var pt=svg.createSVGPoint(); pt.x=cx; pt.y=cy; var p=pt.matrixTransform(m.inverse()); return {x:p.x,y:p.y}; }
     var r=svg.getBoundingClientRect(); return {x:(cx-r.left)/r.width*620,y:(cy-r.top)/r.height*580};
   }
-  function toWall(evt){ var p=vbPoint(evt); var wx=(p.x-OX)/CX; return {wx:wx, wy:(OY+wx*CY-p.y)/S}; }        // Klick -> Hauptwand
+  function toWall(evt){ var p=vbPoint(evt); var wx=(p.x-OX)/CX; return {wx:wx, wy:(OY+wx*CY-p.y)/S}; }        // Klick -> Hauptwand (wz=0)
+  function toLeft(evt){ var p=vbPoint(evt); var wz=(OX-p.x)/CX; return {wz:wz, wy:(OY+wz*CY-p.y)/S}; }        // Klick -> linke Seitenwand (wx=0)
   function toCeil(evt){ var p=vbPoint(evt); var A=(p.x-OX)/CX, B=(p.y-OY+WH*S)/CY; return {wx:(A+B)/2, wz:(B-A)/2}; } // Klick -> Decke
 
   // ---- Bauteil-Icons (echte gezeichnete Symbole) --------------------------
@@ -238,6 +240,7 @@
     // linke Seitenwand + Sockelleiste
     svg.appendChild(el('polygon',{points:ptsStr([pleft(0,0),pleft(DEP,0),pleft(DEP,WH),pleft(0,WH)]),fill:'url(#gLeft)',stroke:'#1d3452','stroke-width':1}));
     svg.appendChild(el('polygon',{points:ptsStr([pleft(0,0),pleft(DEP,0),pleft(DEP,8),pleft(0,8)]),fill:'#1b3149'}));
+    [Z.unten,Z.oben].forEach(function(z){ svg.appendChild(polyLeft(0,DEP,z.y1,z.y2,{fill:'rgba(0,198,255,0.13)',stroke:'rgba(0,198,255,0.4)','stroke-width':0.7})); });
 
     // Hauptwand + Sockelleiste
     svg.appendChild(polyMain(0,WW,0,WH,{fill:'url(#gWall)',stroke:'#2a4a6e','stroke-width':1.4}));
@@ -317,6 +320,12 @@
     st.cable=(st.cable||0)+(WH-vp.y)+wz+Math.abs(wx-vx);
     var d='M'+f(pmain(vx,vp.y))+' L'+f(pmain(vx,WH))+' L'+f(pceil(vx,wz))+' L'+f(pceil(wx,wz));
     animPath(mk,d);
+  }
+  function schlitzLeft(wz,wy){
+    // Hauptwand runter -> Ecke -> linke Wand entlang der unteren Zone
+    st.cable=(st.cable||0)+(vp.y-30)+vx+wz+Math.abs(wy-30);
+    var d='M'+f(pmain(vx,vp.y))+' L'+f(pmain(vx,30))+' L'+f(pmain(0,30))+' L'+f(pleft(wz,30))+' L'+f(pleft(wz,wy));
+    animPath(document.getElementById('markers'),d);
   }
   function animPath(mk,d){
     var path=el('path',{d:d,fill:'none',stroke:'#9aa0a8','stroke-width':3.4,'stroke-dasharray':'6 4','stroke-linejoin':'round','stroke-linecap':'round'});
@@ -449,7 +458,7 @@
     st.queue=[];
     if(ex.indexOf('bewegung')>=0) st.queue.push({kind:'bewegung',zone:'senkrechte Zone neben der Tür',label:'den <strong>Bewegungsmelder</strong> (statt Schalter, ca. 110 cm neben der Tür)'});
     else st.queue.push({kind:'schalter',zone:'senkrechte Zone neben der Tür',label:'den <strong>Lichtschalter</strong> (15 cm neben der Tür, 105 cm hoch)'});
-    for(var i=0;i<st.count;i++) st.queue.push({kind:'steckdose',zone:'untere waagerechte Zone',label:'<strong>Steckdose '+(i+1)+'/'+st.count+'</strong> (mittig 30 cm über dem Boden)'});
+    for(var i=0;i<st.count;i++) st.queue.push({kind:'steckdose',zone:'untere Zone — Haupt- oder Seitenwand',label:'<strong>Steckdose '+(i+1)+'/'+st.count+'</strong> (30 cm über dem Boden — frei an jeder Wand)'});
     if(ex.indexOf('netz')>=0) st.queue.push({kind:'netz',zone:'untere waagerechte Zone',label:'die <strong>Netzwerkdose</strong> (RJ45, mit den Steckdosen auf 30 cm)'});
     if(ex.indexOf('herd')>=0) st.queue.push({kind:'herd',zone:'Herd-Anschlussbereich (~50 cm)',label:'den <strong>Herdanschluss</strong> (Drehstrom 400 V, hinter dem Herd, ca. 50 cm)'});
     st.queue.push({kind:'leuchte',zone:'Decke (mittig, auf das Kreuz klicken)',label:'den <strong>Leuchtenauslass</strong> an der <strong>Decke</strong> (mittig)'});
@@ -479,13 +488,16 @@
     if(st.step!=='place' || st.qIdx>=st.queue.length) return;
     if(hs && hs.type==='furn'){ showInfo(hs); return; }
     var it=st.queue[st.qIdx], onCeil=(it.kind==='leuchte'||it.kind==='rauch');
-    var ok, pt;
-    if(onCeil){ var c=toCeil(evt); ok=Installation.placeOk(it.kind,c.wx,c.wz); pt=pceil(c.wx,c.wz); }
-    else { var w=toWall(evt); ok=Installation.placeOk(it.kind,w.wx,w.wy); pt=pmain(w.wx,w.wy); }
+    var onLeft=(it.kind==='steckdose' && vbPoint(evt).x < OX);   // Klick links der Raum-Ecke -> linke Wand
+    var ok, pt, after;
+    if(onCeil){ var c=toCeil(evt); ok=Installation.placeOk(it.kind,c.wx,c.wz); pt=pceil(c.wx,c.wz);
+      after=function(){ if(it.kind==='leuchte') schlitzCeil(c.wx,c.wz); }; }
+    else if(onLeft){ var Lp=toLeft(evt); ok=(Math.abs(Lp.wy-30)<=7 && Lp.wz>8 && Lp.wz<DEP-8); pt=pleft(Lp.wz,Lp.wy);
+      after=function(){ schlitzLeft(Lp.wz,Lp.wy); }; }
+    else { var w=toWall(evt); ok=Installation.placeOk(it.kind,w.wx,w.wy); pt=pmain(w.wx,w.wy);
+      after=function(){ schlitz(w.wx,w.wy); if(it.kind==='steckdose'){ st.furnNeeds.forEach(function(nd){ if(Math.abs(w.wx-nd.x)<=70) nd.covered=true; }); } }; }
     if(ok){
-      place(it.kind,pt,onCeil);
-      if(it.kind==='leuchte') schlitzCeil(c.wx,c.wz); else if(!onCeil) schlitz(w.wx,w.wy);
-      if(it.kind==='steckdose'){ st.furnNeeds.forEach(function(nd){ if(Math.abs(w.wx-nd.x)<=70) nd.covered=true; }); }
+      place(it.kind,pt,onCeil); after();
       st.bom[it.kind]=(st.bom[it.kind]||0)+1; renderBOM();
       if(st.firstTry[st.qIdx]!==false){ st.hits++; document.getElementById('hits').textContent=st.hits; }
       st.qIdx++;
