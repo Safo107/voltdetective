@@ -44,7 +44,7 @@ var Installation = (function () {
   function placeOk(kind, wx, wy) {
     if (kind === 'schalter')  return Math.abs(wx - vx) <= 7 && Math.abs(wy - 105) <= 9;                         // 15 cm neben Tür, 105 cm
     if (kind === 'steckdose') return notBehindDoor(wx, wy) && Math.abs(wy - 30) <= 7 && wx > 8 && wx < WW - 8;  // mittig 30 cm über Boden
-    if (kind === 'leuchte')   return wy >= WH - 18 && wx >= 150 && wx <= 300;                                   // Deckenauslass mittig
+    if (kind === 'leuchte')   return Math.abs(wx - WW / 2) <= 60 && Math.abs(wy - DEPTH / 2) <= 45;             // Deckenauslass mittig (wy = Tiefe wz auf der Deckenebene)
     if (kind === 'herd')      return wx >= herd.x1 && wx <= herd.x2 && Math.abs(wy - herd.y) <= 9;              // Herdanschluss ~50 cm
     if (kind === 'bewegung')  return Math.abs(wx - vx) <= 9 && Math.abs(wy - 110) <= 12;                        // Bewegungsmelder neben Tür ~110 cm
     return false;
