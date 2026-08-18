@@ -34,6 +34,13 @@
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend svg { flex-shrink:0; }
   .sw { width: 16px; height: 10px; border-radius: 3px; display: inline-block; }
+  .fuse-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .fuse-row .cname { min-width:120px; font-weight:600; }
+  .fuse-row .grp { display:flex; gap:4px; }
+  .fuse-row .grp button { font-size:12px; padding:3px 9px; border-radius:6px; border:1px solid var(--border); background:var(--card-bg2); color:var(--text); cursor:pointer; }
+  .fuse-row .amp button.sel { background:var(--cyan); color:var(--navy); border-color:var(--cyan); font-weight:700; }
+  .fuse-row .fi button.sel { background:var(--ok); color:var(--navy); border-color:var(--ok); font-weight:700; }
+  .fuse-lbl { color:var(--muted); font-size:12px; }
 </style>
 </head>
 <body>
@@ -58,9 +65,12 @@
       <button class="btn tiny" id="b-apartment">Ganze Wohnung</button>
       <button class="btn tiny" id="b-thermal" style="display:none">Wärmebild</button>
       <button class="btn tiny" id="b-measure" style="display:none">Messen (Duspol)</button>
+      <button class="btn tiny" id="b-fuse" style="display:none">Sicherungskasten</button>
+      <button class="btn tiny" id="b-plan" style="display:none">Grundriss</button>
       <button class="btn tiny primary" id="b-next" style="display:none">Nächster Raum →</button>
       <span class="ins-score">Beim 1. Versuch getroffen: <strong id="hits">0</strong> / <span id="total">0</span></span>
       <span class="ins-prog" id="prog"></span>
+      <span class="ins-score" id="timer"></span>
     </div>
 
     <div class="stepbox" id="stepbox">—</div>
@@ -70,6 +80,8 @@
     <div class="legend card" style="padding:12px 14px" id="legend"></div>
     <div class="card" id="bom" style="padding:10px 14px;font-size:13px;margin-top:10px"></div>
     <div id="verdict"></div>
+    <div class="card" id="fusebox" style="display:none;padding:12px 14px;margin-top:10px"></div>
+    <div class="card" id="planwrap" style="display:none;padding:8px;margin-top:10px"></div>
   </main>
 
   <div id="disclaimer-bar">
@@ -410,6 +422,8 @@
     b.innerHTML='<strong style="color:var(--cyan)">Materialliste</strong> &nbsp; '+(parts.length?parts.join(' &nbsp;·&nbsp; '):'<span style="color:var(--muted)">noch nichts gesetzt</span>')
       +' <span style="color:var(--muted)">&nbsp; — verlegte Leitung ~ '+((st.cable||0)/100).toFixed(1)+' m</span>';
   }
+  function startTimer(){ clearInterval(st.timerInt); st.timerInt=setInterval(function(){ var e=document.getElementById('timer'); if(!e) return; if(st.step==='place') e.textContent='Zeit: '+((Date.now()-st.tStart)/1000).toFixed(0)+' s'; },300); }
+  function stopTimer(){ clearInterval(st.timerInt); }
   function renderStep(){
     var box=document.getElementById('stepbox');
     if(st.step==='count'){
@@ -442,6 +456,7 @@
     if(ex.indexOf('rauch')>=0) st.queue.push({kind:'rauch',zone:'Decke (roter Zielkreis)',label:'den <strong>Rauchmelder</strong> an der <strong>Decke</strong> (Raummitte, versetzt zur Leuchte)'});
     st.qIdx=0; st.firstTry=[]; st.hits=0; st.total=st.queue.length;
     document.getElementById('hits').textContent='0'; document.getElementById('total').textContent=st.total;
+    st.tStart=Date.now(); st.miss=0; startTimer();
     st.step='place'; renderStep();
   }
   function onClick(evt){
@@ -475,7 +490,7 @@
       if(st.firstTry[st.qIdx]!==false){ st.hits++; document.getElementById('hits').textContent=st.hits; }
       st.qIdx++;
       if(st.qIdx>=st.queue.length) finish(); else renderStep();
-    } else { st.firstTry[st.qIdx]=false; redX(pt); }
+    } else { st.firstTry[st.qIdx]=false; st.miss++; redX(pt); }
   }
   function finish(){
     var coveredN=st.furnNeeds.filter(function(n){return n.covered;}).length;
@@ -486,6 +501,12 @@
     var extra=uncovered.length? ' <span style="color:var(--no)">— keine Steckdose nahe: '+uncovered.join(', ')+'</span>' : ' <span style="color:var(--ok)">— alle Möbel versorgt</span>';
     var head = camp ? 'Wohnung · Raum '+(camp.idx+1)+'/'+camp.rooms.length+' — '+st.room.name+': ' : 'Beliebtheit der Wohnung: ';
     document.getElementById('verdict').innerHTML='<div class="fb '+(good?'ok-fb':'bad-fb')+'">'+head+'<strong>'+b.prozent+'%</strong> — '+b.label+extra+'</div>';
+    stopTimer();
+    var secs=Math.max(1,(Date.now()-st.tStart)/1000);
+    var pts=Math.max(0, Math.round(st.total*60 + b.prozent*3 - secs*3 - st.miss*45));
+    var best=+(localStorage.getItem('vd_inst_best')||0); if(pts>best){ best=pts; try{ localStorage.setItem('vd_inst_best',pts); }catch(e){} }
+    var timerEl=document.getElementById('timer'); if(timerEl) timerEl.textContent='';
+    document.getElementById('verdict').innerHTML+='<div class="fb ok-fb" style="margin-top:8px">Challenge: <strong>'+pts+' Punkte</strong> · Zeit '+secs.toFixed(0)+' s · Fehlklicks '+st.miss+' · Bestwert: <strong>'+best+'</strong></div>';
     document.getElementById('stepbox').innerHTML='<div><span class="step">Fertig!</span> <strong>Messen (Duspol)</strong> findet den versteckten Fehler · <strong>Wärmebild</strong> die überlastete Dose · <strong>Schalter/Leuchte</strong> schaltet das Licht. Geräte &amp; Möbel sind anklickbar.</div>';
     document.getElementById('prog').innerHTML='';
     st.step='done'; st.mode='none';
@@ -496,13 +517,16 @@
     var tb=document.getElementById('b-thermal'); if(tb){ tb.style.display=st.hotSocket?'':'none'; tb.textContent='Wärmebild'; }
     var bm=document.getElementById('b-measure'); if(bm){ bm.style.display=st.fault?'':'none'; bm.textContent='Messen (Duspol)'; }
     setLight(false);
+    st.lastScore=b.prozent; st.circuits=null;
+    document.getElementById('b-fuse').style.display=''; document.getElementById('b-plan').style.display='';
     if(typeof Board!=='undefined') Board.add('installation');
     var bn=document.getElementById('b-next');
     if(camp){ camp.scores.push(b.prozent);
+      var bc={}; for(var kk in st.bom) bc[kk]=st.bom[kk]; camp.results.push({name:st.room.name,score:b.prozent,bom:bc});
       if(camp.idx < camp.rooms.length-1){ if(bn){ bn.style.display=''; bn.textContent='Nächster Raum ('+(camp.idx+2)+'/'+camp.rooms.length+') →'; } }
       else { var avg=Math.round(camp.scores.reduce(function(a,c){return a+c;},0)/camp.scores.length);
-        document.getElementById('verdict').innerHTML+='<div class="fb '+(avg>=60?'ok-fb':'bad-fb')+'" style="margin-top:8px"><strong>Ganze Wohnung fertig!</strong> Ø-Beliebtheit über '+camp.rooms.length+' Räume: <strong>'+avg+'%</strong></div>';
-        camp=null; if(bn) bn.style.display='none';
+        document.getElementById('verdict').innerHTML+='<div class="fb '+(avg>=60?'ok-fb':'bad-fb')+'" style="margin-top:8px"><strong>Ganze Wohnung fertig!</strong> Ø-Beliebtheit über '+camp.rooms.length+' Räume: <strong>'+avg+'%</strong> — „Grundriss" zeigt alle Räume.</div>';
+        camp.done=true; if(bn) bn.style.display='none';
       }
     } else if(bn) bn.style.display='none';
   }
@@ -520,19 +544,89 @@
   var camp=null;
   function start(name){
     var r=Installation.newRoom(name);
-    st={ step:'count', room:r.room, min:r.room.minSteck, count:r.room.minSteck, queue:[], qIdx:0, firstTry:[], hits:0, total:0, bom:{}, cable:0, hotspots:[], furnNeeds:[], lightOn:false, lampPt:null, mode:'none', hotSocket:null, hotFound:false, fault:null, faultFound:false };
+    stopTimer();
+    st={ step:'count', room:r.room, min:r.room.minSteck, count:r.room.minSteck, queue:[], qIdx:0, firstTry:[], hits:0, total:0, bom:{}, cable:0, hotspots:[], furnNeeds:[], lightOn:false, lampPt:null, mode:'none', hotSocket:null, hotFound:false, fault:null, faultFound:false, miss:0, tStart:0, timerInt:null, circuits:null, lastScore:0 };
     document.getElementById('hits').textContent='0'; document.getElementById('total').textContent='0';
-    document.getElementById('verdict').innerHTML='';
-    ['b-thermal','b-measure','b-next'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+    document.getElementById('verdict').innerHTML=''; var te=document.getElementById('timer'); if(te) te.textContent='';
+    ['b-thermal','b-measure','b-fuse','b-plan','b-next'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display='none'; });
+    document.getElementById('fusebox').style.display='none'; document.getElementById('planwrap').style.display='none';
     drawScene(); renderStep(); renderBOM();
   }
-  function startCamp(){ camp={ rooms:['Flur / Diele','Wohnzimmer','Küche (Arbeitsbereich)','Schlafzimmer','Kinderzimmer','Arbeitszimmer'], idx:0, scores:[] }; start(camp.rooms[0]); }
+  function startCamp(){ camp={ rooms:['Flur / Diele','Wohnzimmer','Küche (Arbeitsbereich)','Schlafzimmer','Kinderzimmer','Arbeitszimmer'], idx:0, scores:[], results:[] }; start(camp.rooms[0]); }
   function nextRoom(){ if(camp){ camp.idx++; start(camp.rooms[camp.idx]); } }
+
+  // ---- Sicherungskasten (Stromkreise zuordnen) ----------------------------
+  function fuseCircuits(){
+    var cs=[{name:'Licht',amp:null,fi:null,expAmp:['B10','B16'],expFi:null},
+            {name:'Steckdosen',amp:null,fi:null,expAmp:['B16'],expFi:true}];
+    if(st.bom && st.bom.herd) cs.push({name:'Herd (Drehstrom)',amp:null,fi:null,expAmp:['B16','B20'],expFi:null});
+    return cs;
+  }
+  function openFuse(){
+    var box=document.getElementById('fusebox');
+    if(box.style.display!=='none'){ box.style.display='none'; return; }
+    document.getElementById('planwrap').style.display='none';
+    if(!st.circuits) st.circuits=fuseCircuits();
+    box.style.display=''; renderFuse();
+  }
+  function renderFuse(){
+    var box=document.getElementById('fusebox'), amps=['B10','B16','B20','B25'];
+    box.innerHTML='<div style="font-weight:700;color:var(--cyan);margin-bottom:6px">Sicherungskasten — Stromkreise zuordnen</div>'
+      +'<div class="fuse-lbl" style="margin-bottom:8px">Wähle je Stromkreis den passenden Leitungsschutzschalter und ob er hinter den FI (RCD 30 mA) gehört.</div>';
+    st.circuits.forEach(function(c,i){
+      var row=document.createElement('div'); row.className='fuse-row';
+      var a=amps.map(function(x){ return '<button data-c="'+i+'" data-amp="'+x+'" class="'+(c.amp===x?'sel':'')+'">'+x+'</button>'; }).join('');
+      var fi='<button data-c="'+i+'" data-fi="1" class="'+(c.fi===true?'sel':'')+'">FI ja</button><button data-c="'+i+'" data-fi="0" class="'+(c.fi===false?'sel':'')+'">FI nein</button>';
+      row.innerHTML='<span class="cname">'+c.name+'</span><span class="grp amp">'+a+'</span><span class="grp fi">'+fi+'</span>';
+      box.appendChild(row);
+    });
+    var btn=document.createElement('button'); btn.className='btn tiny primary'; btn.style.marginTop='10px'; btn.textContent='Prüfen'; btn.onclick=checkFuse; box.appendChild(btn);
+    var res=document.createElement('div'); res.id='fuse-res'; res.style.marginTop='10px'; box.appendChild(res);
+    box.querySelectorAll('button[data-amp]').forEach(function(b){ b.onclick=function(){ st.circuits[+b.getAttribute('data-c')].amp=b.getAttribute('data-amp'); renderFuse(); }; });
+    box.querySelectorAll('button[data-fi]').forEach(function(b){ b.onclick=function(){ st.circuits[+b.getAttribute('data-c')].fi=(b.getAttribute('data-fi')==='1'); renderFuse(); }; });
+  }
+  function checkFuse(){
+    var ok=0, lines=st.circuits.map(function(c){
+      var good=(c.expAmp.indexOf(c.amp)>=0) && (c.expFi===null || c.fi===c.expFi); if(good) ok++;
+      var soll=good?'':' → richtig: '+c.expAmp.join('/')+(c.expFi===true?', FI ja':c.expFi===false?', FI nein':'');
+      return '<div style="color:'+(good?'var(--ok)':'var(--no)')+';font-size:12.5px">'+(good?'✓':'✗')+' '+c.name+' — '+(c.amp||'?')+', FI '+(c.fi===true?'ja':c.fi===false?'nein':'?')+soll+'</div>';
+    });
+    document.getElementById('fuse-res').innerHTML='<div class="fb '+(ok===st.circuits.length?'ok-fb':'bad-fb')+'">Korrekt: <strong>'+ok+'/'+st.circuits.length+'</strong> Stromkreise</div>'+lines.join('');
+  }
+
+  // ---- Grundriss (Vogelperspektive der Wohnung) ---------------------------
+  function openPlan(){
+    var wrap=document.getElementById('planwrap');
+    if(wrap.style.display!=='none'){ wrap.style.display='none'; return; }
+    document.getElementById('fusebox').style.display='none';
+    var data=(camp&&camp.results&&camp.results.length)?camp.results:[{name:st.room.name,score:st.lastScore||0,bom:st.bom}];
+    wrap.style.display=''; wrap.innerHTML=renderPlan(data);
+  }
+  function renderPlan(data){
+    var cols=Math.min(3,data.length), rows=Math.ceil(data.length/cols), cw=190, ch=124, pad=10;
+    var W=cols*cw+pad*2, H=rows*ch+pad*2+26;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:#0e1c2e;border-radius:8px">';
+    s+='<text x="'+(W/2)+'" y="18" fill="#8fb0d0" font-size="13" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="700" letter-spacing=".06em">GRUNDRISS — '+(data.length>1?'WOHNUNG':'RAUM')+'</text>';
+    data.forEach(function(r,i){
+      var cx=pad+(i%cols)*cw, cy=26+pad+Math.floor(i/cols)*ch;
+      var col=r.score>=85?'#3ddc84':r.score>=60?'#00c6ff':'#ff8a5c', b=r.bom||{};
+      s+='<rect x="'+(cx+4)+'" y="'+(cy+4)+'" width="'+(cw-8)+'" height="'+(ch-8)+'" rx="6" fill="#132840" stroke="'+col+'" stroke-width="1.5"/>';
+      s+='<text x="'+(cx+14)+'" y="'+(cy+22)+'" fill="#dbe8f6" font-size="12" font-family="Barlow,sans-serif" font-weight="600">'+r.name+'</text>';
+      s+='<text x="'+(cx+cw-14)+'" y="'+(cy+22)+'" fill="'+col+'" font-size="14" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-weight="900">'+(r.score||0)+'%</text>';
+      var parts=[]; if(b.steckdose) parts.push(b.steckdose+'× Steckdose'); if(b.netz) parts.push(b.netz+'× Netzwerk');
+      if(b.schalter) parts.push('Schalter'); if(b.bewegung) parts.push('Bew.-Melder'); if(b.leuchte) parts.push('Leuchte');
+      if(b.herd) parts.push('Herd 400 V'); if(b.rauch) parts.push('Rauchmelder');
+      parts.forEach(function(p,k){ s+='<text x="'+(cx+14)+'" y="'+(cy+40+k*13)+'" fill="#9fb4cc" font-size="10" font-family="Barlow,sans-serif">• '+p+'</text>'; });
+    });
+    return s+'</svg>';
+  }
   document.getElementById('b-new').onclick = function(){ camp=null; start(); };
   document.getElementById('b-apartment').onclick = startCamp;
   document.getElementById('b-next').onclick = nextRoom;
   document.getElementById('b-thermal').onclick = function(){ setMode('thermal'); };
   document.getElementById('b-measure').onclick = function(){ setMode('measure'); };
+  document.getElementById('b-fuse').onclick = openFuse;
+  document.getElementById('b-plan').onclick = openPlan;
   buildLegend(); start();
 })();
 </script>
