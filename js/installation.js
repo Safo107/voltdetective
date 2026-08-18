@@ -53,11 +53,13 @@ var Installation = (function () {
     return false;
   }
 
-  // Beliebtheit: Zonen-Treffer (bis 70 %) + Ausstattung (bis 30 %)
-  function beliebtheit(sockets, min, firstTryHits, totalPlacements) {
-    var zoneScore  = Math.round(firstTryHits / totalPlacements * 70);
-    var countScore = sockets >= min + 2 ? 30 : sockets >= min ? 20 : 0;
-    var p = Math.max(0, Math.min(100, zoneScore + countScore));
+  // Beliebtheit: Zonen-Treffer (55 %) + Ausstattung (25 %) + Möbel-Versorgung (20 %)
+  function beliebtheit(sockets, min, firstTryHits, totalPlacements, furnFrac) {
+    furnFrac = (furnFrac == null ? 1 : furnFrac);
+    var zoneScore  = Math.round(firstTryHits / totalPlacements * 55);
+    var countScore = sockets >= min + 2 ? 25 : sockets >= min ? 18 : 0;
+    var furnScore  = Math.round(furnFrac * 20);
+    var p = Math.max(0, Math.min(100, zoneScore + countScore + furnScore));
     var label = p >= 85 ? 'Sehr beliebt — top ausgestattet & normgerecht!'
               : p >= 60 ? 'Beliebt — solide Installation'
               : p >= 35 ? 'Durchschnitt — Mängel'
