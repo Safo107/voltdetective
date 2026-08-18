@@ -16,7 +16,7 @@ var FIREBASE_CONFIG = {
 };
 
 var Board = (function () {
-  var NAME = 'eg_vd_name', LOG = 'eg_vd_board', COL = 'voltdetective_board';
+  var NAME = 'eg_vd_name', LOG = 'eg_vd_board', SC = 'eg_vd_scores', COL = 'voltdetective_board';
   var db = null;
   try {
     if (typeof firebase !== 'undefined' && firebase.initializeApp) {
@@ -34,6 +34,31 @@ var Board = (function () {
     var rec = Object.assign({ n: name(), m: mode, t: Date.now() }, extra || {});
     try { var b = localAll(); b.push(rec); localStorage.setItem(LOG, JSON.stringify(b.slice(-500))); } catch (e) {}
     if (db) { try { db.collection(COL).add({ name: rec.n, mode: mode, ts: rec.t }).catch(function () {}); } catch (e) {} }
+  }
+
+  // Challenge-Highscore (Installations-Punkte). Cloud-Doc: {name, mode:'inst_score', ts, score}
+  function localScores() { try { return JSON.parse(localStorage.getItem(SC) || '[]'); } catch (e) { return []; } }
+  function addScore(score) {
+    score = Math.round(score) || 0;
+    var rec = { n: name(), score: score, t: Date.now() };
+    try { var b = localScores(); b.push(rec); localStorage.setItem(SC, JSON.stringify(b.slice(-300))); } catch (e) {}
+    if (db) { try { db.collection(COL).add({ name: rec.n, mode: 'inst_score', ts: rec.t, score: score }).catch(function () {}); } catch (e) {} }
+  }
+  function bestPerName(list) {
+    var m = {};
+    list.forEach(function (e) { var nm = e.name || e.n || 'Anonym', s = +(e.score || 0); if (!(nm in m) || s > m[nm]) m[nm] = s; });
+    return Object.keys(m).map(function (k) { return { name: k, score: m[k] }; }).sort(function (a, b) { return b.score - a.score; });
+  }
+  // async: cb(rows, source) — rows = [{name, score}] absteigend
+  function topScores(cb) {
+    if (!db) { cb(bestPerName(localScores()), 'lokal'); return; }
+    var done = false, to = setTimeout(function () { if (!done) { done = true; cb(bestPerName(localScores()), 'lokal'); } }, 3500);
+    db.collection(COL).get().then(function (snap) {
+      if (done) return; done = true; clearTimeout(to);
+      var rows = []; snap.forEach(function (d) { var x = d.data(); if (x.mode === 'inst_score' && typeof x.score === 'number') rows.push(x); });
+      if (!rows.length) rows = localScores();
+      cb(bestPerName(rows), 'global');
+    }).catch(function () { if (done) return; done = true; clearTimeout(to); cb(bestPerName(localScores()), 'lokal'); });
   }
 
   function aggregate(list) {
@@ -64,5 +89,5 @@ var Board = (function () {
     }).catch(function () { if (done) return; done = true; clearTimeout(to); cb(aggregate(localAll()), 'lokal'); });
   }
 
-  return { name: name, setName: setName, add: add, leaderboard: leaderboard, load: load, hasCloud: function () { return !!db; } };
+  return { name: name, setName: setName, add: add, addScore: addScore, topScores: topScores, leaderboard: leaderboard, load: load, hasCloud: function () { return !!db; } };
 })();

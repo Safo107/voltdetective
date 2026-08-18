@@ -114,6 +114,9 @@
       <p class="mode-tag" style="margin-bottom:12px">Fortschritt &amp; Erfolge</p>
       <div style="overflow-x:auto"><table class="board-table" id="board-table"><tbody></tbody></table></div>
       <p style="color:var(--muted);font-size:12px;margin-top:10px"><strong id="board-source">Lokal auf diesem Gerät</strong> · ohne Name wird dein Fortschritt als „Anonym" geführt.</p>
+      <h3 style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;margin:20px 0 4px">Challenge-Highscore · Installation</h3>
+      <p class="mode-tag" style="margin-bottom:10px">Beste Punktzahl (schnell &amp; fehlerfrei geplant)</p>
+      <div style="overflow-x:auto"><table class="board-table" id="score-table"><tbody></tbody></table></div>
     </section>
   </main>
 
@@ -166,7 +169,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="js/board.js?v=4"></script>
+<script src="js/board.js?v=5"></script>
 <script>
 (function(){
   var input = document.getElementById('pname');
@@ -180,6 +183,14 @@
       return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num">'+r.werkstatt+'</td><td class="num">'+r.lampen+'</td><td class="num">'+r.protokoll+'</td><td class="num">'+(r.installation||0)+'</td><td class="num"><strong>'+r.total+'</strong></td></tr>';
     }).join('');
   }
+  function renderScoreRows(rows){
+    var tb = document.querySelector('#score-table tbody');
+    var head = '<tr><th class="num">#</th><th>Name</th><th class="num">Punkte</th></tr>';
+    if(!rows.length){ tb.innerHTML = head + '<tr><td colspan="3" class="board-empty">Noch keine Challenge-Punkte — spiel den Installations-Modus!</td></tr>'; return; }
+    tb.innerHTML = head + rows.slice(0,10).map(function(r,i){
+      return '<tr><td class="num">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="num"><strong>'+r.score+'</strong></td></tr>';
+    }).join('');
+  }
   function renderBoard(){
     renderRows(Board.leaderboard());          // sofort lokal anzeigen
     Board.load(function(rows, source){        // dann global nachladen (falls aktiv)
@@ -187,6 +198,7 @@
       var si = document.getElementById('board-source');
       if(si) si.textContent = (source === 'global') ? 'Globale Liste — jeder sieht alle' : 'Lokal auf diesem Gerät';
     });
+    if(Board.topScores) Board.topScores(function(rows){ renderScoreRows(rows); });
   }
   function save(){ Board.setName(input.value); var s=document.getElementById('name-saved'); s.textContent='gespeichert'; setTimeout(function(){ s.textContent=''; },1500); renderBoard(); }
   document.getElementById('savename').onclick = save;

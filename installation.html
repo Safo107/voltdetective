@@ -114,7 +114,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="js/board.js?v=4"></script>
+<script src="js/board.js?v=5"></script>
 <script src="js/installation.js?v=10"></script>
 <script>
 (function(){
@@ -520,13 +520,22 @@
     st.lastScore=b.prozent; st.circuits=null;
     document.getElementById('b-fuse').style.display=''; document.getElementById('b-plan').style.display='';
     if(typeof Board!=='undefined') Board.add('installation');
+    if(typeof Board!=='undefined' && Board.addScore) Board.addScore(pts);
     var bn=document.getElementById('b-next');
-    if(camp){ camp.scores.push(b.prozent);
-      var bc={}; for(var kk in st.bom) bc[kk]=st.bom[kk]; camp.results.push({name:st.room.name,score:b.prozent,bom:bc});
-      if(camp.idx < camp.rooms.length-1){ if(bn){ bn.style.display=''; bn.textContent='Nächster Raum ('+(camp.idx+2)+'/'+camp.rooms.length+') →'; } }
-      else { var avg=Math.round(camp.scores.reduce(function(a,c){return a+c;},0)/camp.scores.length);
-        document.getElementById('verdict').innerHTML+='<div class="fb '+(avg>=60?'ok-fb':'bad-fb')+'" style="margin-top:8px"><strong>Ganze Wohnung fertig!</strong> Ø-Beliebtheit über '+camp.rooms.length+' Räume: <strong>'+avg+'%</strong> — „Grundriss" zeigt alle Räume.</div>';
-        camp.done=true; if(bn) bn.style.display='none';
+    if(camp){
+      var bc={}; for(var kk in st.bom) bc[kk]=st.bom[kk];
+      camp.results[camp.idx]={name:st.room.name,score:b.prozent,bom:bc};
+      var doneN=camp.results.filter(function(x){return x;}).length;
+      if(doneN>=camp.rooms.length){
+        camp.done=true;
+        var scs=camp.results.map(function(x){return x.score;});
+        var avg=Math.round(scs.reduce(function(a,c){return a+c;},0)/scs.length);
+        document.getElementById('verdict').innerHTML+='<div class="fb '+(avg>=60?'ok-fb':'bad-fb')+'" style="margin-top:8px"><strong>Ganze Wohnung fertig!</strong> Ø-Beliebtheit über '+camp.rooms.length+' Räume: <strong>'+avg+'%</strong> — „Grundriss" zeigt alle Räume (Kachel anklicken = nachbessern).</div>';
+        if(bn) bn.style.display='none';
+      } else {
+        var nxt=-1; for(var q=1;q<=camp.rooms.length;q++){ var qi=(camp.idx+q)%camp.rooms.length; if(!camp.results[qi]){ nxt=qi; break; } }
+        camp.nextIdx=nxt;
+        if(bn){ bn.style.display=''; bn.textContent='Nächster Raum ('+(doneN+1)+'/'+camp.rooms.length+') →'; }
       }
     } else if(bn) bn.style.display='none';
   }
@@ -552,8 +561,9 @@
     document.getElementById('fusebox').style.display='none'; document.getElementById('planwrap').style.display='none';
     drawScene(); renderStep(); renderBOM();
   }
-  function startCamp(){ camp={ rooms:['Flur / Diele','Wohnzimmer','Küche (Arbeitsbereich)','Schlafzimmer','Kinderzimmer','Arbeitszimmer'], idx:0, scores:[], results:[] }; start(camp.rooms[0]); }
-  function nextRoom(){ if(camp){ camp.idx++; start(camp.rooms[camp.idx]); } }
+  function startCamp(){ camp={ rooms:['Flur / Diele','Wohnzimmer','Küche (Arbeitsbereich)','Schlafzimmer','Kinderzimmer','Arbeitszimmer'], idx:0, results:[], nextIdx:1, done:false }; start(camp.rooms[0]); }
+  function nextRoom(){ if(camp){ camp.idx=(camp.nextIdx!=null?camp.nextIdx:Math.min(camp.idx+1,camp.rooms.length-1)); start(camp.rooms[camp.idx]); } }
+  function jumpToRoom(i){ document.getElementById('planwrap').style.display='none'; if(camp){ camp.idx=i; start(camp.rooms[i]); } else { start(st.room.name); } }
 
   // ---- Sicherungskasten (Stromkreise zuordnen) ----------------------------
   function fuseCircuits(){
@@ -569,10 +579,36 @@
     if(!st.circuits) st.circuits=fuseCircuits();
     box.style.display=''; renderFuse();
   }
+  function fuseBoardSVG(){
+    var cs=st.circuits, n=cs.length, modW=66, gap=12, x0=24;
+    var anyFi=cs.some(function(c){return c.fi===true;});
+    var W=Math.max(340, x0 + n*(modW+gap) + 24), H=152;
+    var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:#0e1c2e;border-radius:8px;margin-bottom:10px">';
+    s+='<text x="16" y="14" fill="#8fb0d0" font-size="10" font-family="Barlow,sans-serif">Zuleitung / Hauptschalter</text>';
+    s+='<line x1="16" y1="24" x2="'+(W-16)+'" y2="24" stroke="#3a5f86" stroke-width="3"/>';
+    if(anyFi){
+      s+='<rect x="20" y="32" width="76" height="30" rx="4" fill="#12365a" stroke="#00c6ff" stroke-width="1.4"/>';
+      s+='<text x="58" y="51" fill="#cfe6ff" font-size="11" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="800">FI 30 mA</text>';
+      s+='<line x1="58" y1="24" x2="58" y2="32" stroke="#3a5f86" stroke-width="2"/>';
+      s+='<line x1="30" y1="70" x2="'+(W-24)+'" y2="70" stroke="#00c6ff" stroke-width="2" stroke-dasharray="5 3"/>';
+      s+='<text x="'+(W-22)+'" y="80" fill="#00c6ff" font-size="8" text-anchor="end" font-family="Barlow,sans-serif">FI-Bus (30 mA)</text>';
+    }
+    cs.forEach(function(c,i){
+      var x=x0+i*(modW+gap), fi=(c.fi===true), y=fi?86:34, busY=fi?70:24;
+      var col=(c._chk==null)?'#2c517a':(c._chk?'#3ddc84':'#ff5c5c');
+      s+='<line x1="'+(x+modW/2)+'" y1="'+busY+'" x2="'+(x+modW/2)+'" y2="'+y+'" stroke="'+(fi?'#00c6ff':'#3a5f86')+'" stroke-width="1.6"/>';
+      s+='<rect x="'+x+'" y="'+y+'" width="'+modW+'" height="48" rx="4" fill="#132840" stroke="'+col+'" stroke-width="1.5"/>';
+      s+='<rect x="'+(x+modW/2-5)+'" y="'+(y+7)+'" width="10" height="15" rx="2" fill="#24435f" stroke="#4a6684"/>';
+      s+='<text x="'+(x+modW/2)+'" y="'+(y+36)+'" fill="#dbe8f6" font-size="12" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="900">'+(c.amp||'—')+'</text>';
+      s+='<text x="'+(x+modW/2)+'" y="'+(y+61)+'" fill="#9fb4cc" font-size="8.5" text-anchor="middle" font-family="Barlow,sans-serif">'+c.name.split(' ')[0]+'</text>';
+    });
+    return s+'</svg>';
+  }
   function renderFuse(){
     var box=document.getElementById('fusebox'), amps=['B10','B16','B20','B25'];
     box.innerHTML='<div style="font-weight:700;color:var(--cyan);margin-bottom:6px">Sicherungskasten — Stromkreise zuordnen</div>'
-      +'<div class="fuse-lbl" style="margin-bottom:8px">Wähle je Stromkreis den passenden Leitungsschutzschalter und ob er hinter den FI (RCD 30 mA) gehört.</div>';
+      +fuseBoardSVG()
+      +'<div class="fuse-lbl" style="margin-bottom:8px">Wähle je Stromkreis den passenden Leitungsschutzschalter (LS) und ob er hinter den FI (RCD 30 mA) gehört — die Schiene oben zeigt deine Zuordnung.</div>';
     st.circuits.forEach(function(c,i){
       var row=document.createElement('div'); row.className='fuse-row';
       var a=amps.map(function(x){ return '<button data-c="'+i+'" data-amp="'+x+'" class="'+(c.amp===x?'sel':'')+'">'+x+'</button>'; }).join('');
@@ -582,41 +618,48 @@
     });
     var btn=document.createElement('button'); btn.className='btn tiny primary'; btn.style.marginTop='10px'; btn.textContent='Prüfen'; btn.onclick=checkFuse; box.appendChild(btn);
     var res=document.createElement('div'); res.id='fuse-res'; res.style.marginTop='10px'; box.appendChild(res);
-    box.querySelectorAll('button[data-amp]').forEach(function(b){ b.onclick=function(){ st.circuits[+b.getAttribute('data-c')].amp=b.getAttribute('data-amp'); renderFuse(); }; });
-    box.querySelectorAll('button[data-fi]').forEach(function(b){ b.onclick=function(){ st.circuits[+b.getAttribute('data-c')].fi=(b.getAttribute('data-fi')==='1'); renderFuse(); }; });
+    box.querySelectorAll('button[data-amp]').forEach(function(b){ b.onclick=function(){ var c=st.circuits[+b.getAttribute('data-c')]; c.amp=b.getAttribute('data-amp'); c._chk=null; renderFuse(); }; });
+    box.querySelectorAll('button[data-fi]').forEach(function(b){ b.onclick=function(){ var c=st.circuits[+b.getAttribute('data-c')]; c.fi=(b.getAttribute('data-fi')==='1'); c._chk=null; renderFuse(); }; });
   }
   function checkFuse(){
-    var ok=0, lines=st.circuits.map(function(c){
-      var good=(c.expAmp.indexOf(c.amp)>=0) && (c.expFi===null || c.fi===c.expFi); if(good) ok++;
-      var soll=good?'':' → richtig: '+c.expAmp.join('/')+(c.expFi===true?', FI ja':c.expFi===false?', FI nein':'');
-      return '<div style="color:'+(good?'var(--ok)':'var(--no)')+';font-size:12.5px">'+(good?'✓':'✗')+' '+c.name+' — '+(c.amp||'?')+', FI '+(c.fi===true?'ja':c.fi===false?'nein':'?')+soll+'</div>';
-    });
+    var ok=0;
+    st.circuits.forEach(function(c){ var good=(c.expAmp.indexOf(c.amp)>=0)&&(c.expFi===null||c.fi===c.expFi); c._chk=good; if(good) ok++; });
+    renderFuse();
+    var lines=st.circuits.map(function(c){ var soll=c._chk?'':' → richtig: '+c.expAmp.join('/')+(c.expFi===true?', FI ja':c.expFi===false?', FI nein':''); return '<div style="color:'+(c._chk?'var(--ok)':'var(--no)')+';font-size:12.5px">'+(c._chk?'✓':'✗')+' '+c.name+' — '+(c.amp||'?')+', FI '+(c.fi===true?'ja':c.fi===false?'nein':'?')+soll+'</div>'; });
     document.getElementById('fuse-res').innerHTML='<div class="fb '+(ok===st.circuits.length?'ok-fb':'bad-fb')+'">Korrekt: <strong>'+ok+'/'+st.circuits.length+'</strong> Stromkreise</div>'+lines.join('');
   }
 
   // ---- Grundriss (Vogelperspektive der Wohnung) ---------------------------
+  function planData(){
+    if(camp){ return camp.rooms.map(function(nm,i){ var r=camp.results[i]; return {idx:i,name:nm,score:r?r.score:null,bom:r?r.bom:null,done:!!r}; }); }
+    return [{idx:0,name:st.room.name,score:st.lastScore||0,bom:st.bom,done:true}];
+  }
   function openPlan(){
     var wrap=document.getElementById('planwrap');
     if(wrap.style.display!=='none'){ wrap.style.display='none'; return; }
     document.getElementById('fusebox').style.display='none';
-    var data=(camp&&camp.results&&camp.results.length)?camp.results:[{name:st.room.name,score:st.lastScore||0,bom:st.bom}];
-    wrap.style.display=''; wrap.innerHTML=renderPlan(data);
+    wrap.style.display=''; wrap.innerHTML=renderPlan(planData());
+    wrap.querySelectorAll('[data-ri]').forEach(function(g){ g.style.cursor='pointer'; g.onclick=function(){ jumpToRoom(+g.getAttribute('data-ri')); }; });
   }
   function renderPlan(data){
     var cols=Math.min(3,data.length), rows=Math.ceil(data.length/cols), cw=190, ch=124, pad=10;
-    var W=cols*cw+pad*2, H=rows*ch+pad*2+26;
+    var W=cols*cw+pad*2, H=rows*ch+pad*2+30;
     var s='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:'+W+'px;background:#0e1c2e;border-radius:8px">';
-    s+='<text x="'+(W/2)+'" y="18" fill="#8fb0d0" font-size="13" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="700" letter-spacing=".06em">GRUNDRISS — '+(data.length>1?'WOHNUNG':'RAUM')+'</text>';
+    s+='<text x="'+(W/2)+'" y="16" fill="#8fb0d0" font-size="13" text-anchor="middle" font-family="Barlow Condensed,sans-serif" font-weight="700" letter-spacing=".06em">GRUNDRISS — '+(data.length>1?'WOHNUNG':'RAUM')+'</text>';
+    s+='<text x="'+(W/2)+'" y="28" fill="#5f7d9c" font-size="9" text-anchor="middle" font-family="Barlow,sans-serif">Kachel anklicken zum Öffnen / Nachbessern</text>';
     data.forEach(function(r,i){
-      var cx=pad+(i%cols)*cw, cy=26+pad+Math.floor(i/cols)*ch;
-      var col=r.score>=85?'#3ddc84':r.score>=60?'#00c6ff':'#ff8a5c', b=r.bom||{};
-      s+='<rect x="'+(cx+4)+'" y="'+(cy+4)+'" width="'+(cw-8)+'" height="'+(ch-8)+'" rx="6" fill="#132840" stroke="'+col+'" stroke-width="1.5"/>';
+      var cx=pad+(i%cols)*cw, cy=32+pad+Math.floor(i/cols)*ch;
+      var col=!r.done?'#4a6785':r.score>=85?'#3ddc84':r.score>=60?'#00c6ff':'#ff8a5c', b=r.bom||{};
+      s+='<g data-ri="'+r.idx+'">';
+      s+='<rect x="'+(cx+4)+'" y="'+(cy+4)+'" width="'+(cw-8)+'" height="'+(ch-8)+'" rx="6" fill="'+(r.done?'#132840':'#0e1f33')+'" stroke="'+col+'" stroke-width="1.5"/>';
       s+='<text x="'+(cx+14)+'" y="'+(cy+22)+'" fill="#dbe8f6" font-size="12" font-family="Barlow,sans-serif" font-weight="600">'+r.name+'</text>';
-      s+='<text x="'+(cx+cw-14)+'" y="'+(cy+22)+'" fill="'+col+'" font-size="14" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-weight="900">'+(r.score||0)+'%</text>';
-      var parts=[]; if(b.steckdose) parts.push(b.steckdose+'× Steckdose'); if(b.netz) parts.push(b.netz+'× Netzwerk');
-      if(b.schalter) parts.push('Schalter'); if(b.bewegung) parts.push('Bew.-Melder'); if(b.leuchte) parts.push('Leuchte');
-      if(b.herd) parts.push('Herd 400 V'); if(b.rauch) parts.push('Rauchmelder');
-      parts.forEach(function(p,k){ s+='<text x="'+(cx+14)+'" y="'+(cy+40+k*13)+'" fill="#9fb4cc" font-size="10" font-family="Barlow,sans-serif">• '+p+'</text>'; });
+      s+='<text x="'+(cx+cw-14)+'" y="'+(cy+22)+'" fill="'+col+'" font-size="14" text-anchor="end" font-family="Barlow Condensed,sans-serif" font-weight="900">'+(r.done?(r.score||0)+'%':'offen')+'</text>';
+      if(r.done){ var parts=[]; if(b.steckdose) parts.push(b.steckdose+'× Steckdose'); if(b.netz) parts.push(b.netz+'× Netzwerk');
+        if(b.schalter) parts.push('Schalter'); if(b.bewegung) parts.push('Bew.-Melder'); if(b.leuchte) parts.push('Leuchte');
+        if(b.herd) parts.push('Herd 400 V'); if(b.rauch) parts.push('Rauchmelder');
+        parts.forEach(function(p,k){ s+='<text x="'+(cx+14)+'" y="'+(cy+42+k*13)+'" fill="#9fb4cc" font-size="10" font-family="Barlow,sans-serif">• '+p+'</text>'; });
+      } else { s+='<text x="'+(cx+cw/2)+'" y="'+(cy+ch/2+8)+'" fill="#5f7d9c" font-size="11" text-anchor="middle" font-family="Barlow,sans-serif">noch nicht geplant</text>'; }
+      s+='</g>';
     });
     return s+'</svg>';
   }
