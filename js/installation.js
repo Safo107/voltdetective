@@ -14,6 +14,7 @@ var Installation = (function () {
   var win   = { x: 250, w: 95, sill: 90, h: 80 };  // Fenster (Brüstung 90 cm, 80 cm hoch)
   var vx    = door.x + door.w + 15;                // senkrechte Zone: 15 cm neben Tür
   var vpoint = { x: vx, y: 205 };                  // Abzweig/Unterverteilung oben in der senkr. Zone
+  var herd  = { x1: 270, x2: 350, y: 50 };         // Herdanschlussdose (Drehstrom 400 V) ~50 cm
 
   // Installationszonen nach DIN 18015-3
   var zones = {
@@ -29,8 +30,9 @@ var Installation = (function () {
     { name: 'Wohnzimmer', minSteck: 5 },
     { name: 'Schlafzimmer', minSteck: 4 },
     { name: 'Kinderzimmer', minSteck: 4 },
-    { name: 'Küche (Arbeitsbereich)', minSteck: 5 },
-    { name: 'Arbeitszimmer', minSteck: 4 }
+    { name: 'Küche (Arbeitsbereich)', minSteck: 5, extras: ['herd'] },
+    { name: 'Arbeitszimmer', minSteck: 4 },
+    { name: 'Flur / Diele', minSteck: 2, extras: ['bewegung'] }
   ];
 
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
@@ -43,6 +45,8 @@ var Installation = (function () {
     if (kind === 'schalter')  return Math.abs(wx - vx) <= 7 && Math.abs(wy - 105) <= 9;                         // 15 cm neben Tür, 105 cm
     if (kind === 'steckdose') return notBehindDoor(wx, wy) && Math.abs(wy - 30) <= 7 && wx > 8 && wx < WW - 8;  // mittig 30 cm über Boden
     if (kind === 'leuchte')   return wy >= WH - 18 && wx >= 150 && wx <= 300;                                   // Deckenauslass mittig
+    if (kind === 'herd')      return wx >= herd.x1 && wx <= herd.x2 && Math.abs(wy - herd.y) <= 9;              // Herdanschluss ~50 cm
+    if (kind === 'bewegung')  return Math.abs(wx - vx) <= 9 && Math.abs(wy - 110) <= 12;                        // Bewegungsmelder neben Tür ~110 cm
     return false;
   }
 
@@ -60,7 +64,7 @@ var Installation = (function () {
 
   return {
     newRoom: newRoom, placeOk: placeOk, beliebtheit: beliebtheit,
-    geom: { WW: WW, WH: WH, DEPTH: DEPTH, door: door, win: win, vx: vx, vpoint: vpoint, zones: zones },
+    geom: { WW: WW, WH: WH, DEPTH: DEPTH, door: door, win: win, vx: vx, vpoint: vpoint, herd: herd, zones: zones },
     rooms: ROOMS
   };
 })();
