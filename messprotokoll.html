@@ -28,6 +28,19 @@
   .fb { display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 8px; font-size: 15px; }
   .ok-fb { background: rgba(61,220,132,.12); border: 1px solid rgba(61,220,132,.4); }
   .bad-fb { background: rgba(255,92,92,.12); border: 1px solid rgba(255,92,92,.4); }
+  .mp-plinfo { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; background: var(--card-bg2); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; white-space: nowrap; }
+  .erl { font-size: 11px; color: var(--muted); line-height: 1.55; margin-top: 5px; }
+  .prot-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .prot-table th, .prot-table td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--border); }
+  .prot-table th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .prot-table td.pr { text-align: right; font-family: ui-monospace, monospace; }
+  .prot-table td.pc { text-align: center; }
+  @media print {
+    #header, #disclaimer-bar, #footer, #cookie-banner, .mp-head button, [data-act], canvas { display: none !important; }
+    body, #app { background: #fff !important; color: #000 !important; }
+    .card { border: 1px solid #ccc !important; background: #fff !important; }
+    .ok { color: #1a7a3f !important; } .no { color: #c0392b !important; }
+  }
 </style>
 </head>
 <body>
@@ -49,6 +62,7 @@
 
     <div class="mp-head">
       <span class="mp-pruefling" id="pruefling">—</span>
+      <span class="mp-plinfo" id="pl-info"></span>
       <button class="btn tiny primary" id="b-new">Neue Prüfung</button>
       <span class="mp-score">Richtig bewertet: <strong id="score">0</strong> / <span id="total">0</span></span>
     </div>
@@ -93,21 +107,39 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="js/board.js?v=3"></script>
-<script src="js/protokoll.js?v=1"></script>
+<script src="js/protokoll.js?v=2"></script>
 <script>
 (function(){
   var round, done, correct, units = {};
-  function start(){
+
+  function fmtVal(v, u) {
+    var s = typeof v === 'number' ? String(v).replace('.', ',') : v;
+    return u ? (s + ' ' + u) : s;
+  }
+
+  function plInfoText() {
+    var c = Protokoll.current();
+    if (!c.lsTyp) return '';
+    var parts = ['LS ' + c.lsTyp + c.lsIn + ' A'];
+    if (c.rcd) parts.push('RCD ' + c.rcd + ' mA');
+    parts.push(c.drehstrom ? '3~ Drehstrom' : '1~ Wechselstrom');
+    parts.push('L ≈ ' + c.laenge + ' m');
+    return parts.join(' · ');
+  }
+
+  function start() {
     round = Protokoll.newRound();
     done = 0; correct = 0;
     units = {}; round.mess.forEach(function(m){ units[m.key] = m.unit; });
     document.getElementById('pruefling').textContent = round.pruefling;
+    document.getElementById('pl-info').textContent = plInfoText();
     document.getElementById('score').textContent = '0';
     document.getElementById('total').textContent = Protokoll.count();
     document.getElementById('verdict').innerHTML = '';
     renderTable();
   }
-  function renderTable(){
+
+  function renderTable() {
     var tb = document.querySelector('#mtable tbody');
     tb.innerHTML = round.mess.map(function(m){
       return '<tr data-key="'+m.key+'"><td>'+m.name+'</td><td class="lim">'+m.limit+'</td>'
@@ -116,31 +148,102 @@
     }).join('');
     tb.querySelectorAll('[data-act="measure"]').forEach(function(b){
       b.onclick = function(){
-        var tr = b.closest('tr'), key = tr.dataset.key, v = Protokoll.measure(key), u = units[key];
-        tr.querySelector('.mw').innerHTML = '<strong>'+v+(u?(' '+u):'')+'</strong>';
-        tr.querySelector('.bw').innerHTML = '<button class="btn tiny accent" data-j="1">i.O.</button> <button class="btn tiny" data-j="0">n.i.O.</button>';
+        var tr = b.closest('tr'), key = tr.dataset.key;
+        var v = Protokoll.measure(key), u = units[key];
+        tr.querySelector('.mw').innerHTML = '<strong>' + fmtVal(v, u) + '</strong>';
+        tr.querySelector('.bw').innerHTML =
+          '<button class="btn tiny accent" data-j="1">i.O.</button> '
+          + '<button class="btn tiny" data-j="0">n.i.O.</button>';
         wireJudge(tr, key);
       };
     });
   }
-  function wireJudge(tr, key){
+
+  function wireJudge(tr, key) {
     tr.querySelectorAll('[data-j]').forEach(function(b){
       b.onclick = function(){
-        var claim = b.dataset.j === '1', truth = Protokoll.evaluate(key), ok = (claim === truth);
-        tr.querySelector('.bw').innerHTML = '<span class="'+(truth?'ok':'no')+'">'+(truth?'i.O.':'n.i.O.')+'</span>'
-          + (ok ? ' <span class="muted">(richtig)</span>' : ' <span class="no">(falsch bewertet)</span>');
-        done++; if(ok) correct++;
+        var claim = b.dataset.j === '1';
+        var ev    = Protokoll.evaluate(key);   // { ok, grenzwert, erlaeuterung }
+        var truth = ev.ok;
+        var ok    = (claim === truth);
+        var statusHtml = '<span class="'+(truth?'ok':'no')+'">'+(truth?'i.O.':'n.i.O.')+'</span>';
+        var judgeHtml  = ok
+          ? ' <span style="color:var(--muted);font-size:12px">(richtig bewertet)</span>'
+          : ' <span class="no" style="font-size:12px">(falsch bewertet)</span>';
+        var erlHtml = ev.erlaeuterung
+          ? '<div class="erl">' + ev.erlaeuterung + '</div>'
+          : '';
+        tr.querySelector('.bw').innerHTML = statusHtml + judgeHtml + erlHtml;
+        done++; if (ok) correct++;
         document.getElementById('score').textContent = correct;
-        if(done === Protokoll.count()) finish();
+        if (done === Protokoll.count()) finish();
       };
     });
   }
-  function finish(){
-    var v = Protokoll.overall();
-    document.getElementById('verdict').innerHTML = '<div class="fb '+(v?'ok-fb':'bad-fb')+'">Gesamtergebnis: <strong>'
-      + (v?'Anlage in Ordnung':'Mängel festgestellt') + '</strong> &nbsp;·&nbsp; richtig bewertet: <strong>'+correct+' / '+Protokoll.count()+'</strong></div>';
+
+  function finish() {
+    var bestanden = Protokoll.overall();
+    var c   = Protokoll.current();
+    var allV = Protokoll.allValues();
+    var datum = new Date().toLocaleDateString('de-DE');
+
+    var protokollRows = allV.map(function(row) {
+      return '<tr>'
+        + '<td>' + row.name + '</td>'
+        + '<td style="font-family:monospace;font-size:12px;color:var(--muted)">' + row.limit + '</td>'
+        + '<td class="pr">' + fmtVal(row.value, row.unit) + '</td>'
+        + '<td class="pc"><span class="'+(row.ok?'ok':'no')+'">'+(row.ok?'i.O.':'n.i.O.')+'</span></td>'
+        + '</tr>';
+    }).join('');
+
+    var plMeta = 'LS ' + c.lsTyp + c.lsIn + ' A'
+      + (c.rcd ? ' · RCD ' + c.rcd + ' mA' : '')
+      + (c.drehstrom ? ' · 3~ Drehstrom' : ' · 1~ Wechselstrom');
+
+    var protokollHtml =
+      '<div style="margin-top:18px;padding:16px 18px;background:var(--card-bg);'
+      + 'border:1px solid var(--border);border-radius:12px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;'
+      + 'flex-wrap:wrap;gap:10px;margin-bottom:14px">'
+      + '<h3 style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;margin:0">'
+      + 'Prüfprotokoll</h3>'
+      + '<button class="btn tiny ghost" onclick="window.print()" style="display:inline-flex;'
+      + 'align-items:center;gap:6px">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+      + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+      + '<polyline points="6 9 6 2 18 2 18 9"/>'
+      + '<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>'
+      + '<rect x="6" y="14" width="12" height="8"/></svg>Drucken</button>'
+      + '</div>'
+      + '<p style="font-size:12px;color:var(--muted);margin:0 0 12px">'
+      + 'Prüfling: <strong>' + c.pruefling + '</strong> · ' + datum + ' · ' + plMeta
+      + '</p>'
+      + '<div style="overflow-x:auto"><table class="prot-table">'
+      + '<thead><tr><th>Prüfschritt</th><th>Grenzwert</th>'
+      + '<th style="text-align:right">Messwert</th>'
+      + '<th style="text-align:center">Bewertung</th></tr></thead>'
+      + '<tbody>' + protokollRows + '</tbody></table></div>'
+      + '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);'
+      + 'font-size:14px;font-weight:700">Gesamtergebnis: '
+      + '<span class="'+(bestanden?'ok':'no')+'">'
+      + (bestanden ? 'BESTANDEN — Anlage in Ordnung' : 'NICHT BESTANDEN — Mängel festgestellt')
+      + '</span></div>'
+      + '<p style="font-size:11px;color:var(--muted);margin:8px 0 0">'
+      + 'Simulation zu Lernzwecken · Grenzwerte nach DIN VDE 0100-600 · '
+      + 'VoltDetective von elektrogenius.de</p>'
+      + '</div>';
+
+    document.getElementById('verdict').innerHTML =
+      '<div class="fb '+(bestanden?'ok-fb':'bad-fb')+'" style="margin-bottom:4px">'
+      + '<strong>Gesamtergebnis: '
+      + (bestanden ? 'Anlage in Ordnung' : 'Mängel festgestellt')
+      + '</strong> · Richtig bewertet: <strong>'
+      + correct + ' / ' + Protokoll.count() + '</strong></div>'
+      + protokollHtml;
+
     if (typeof Board !== 'undefined') Board.add('protokoll');
   }
+
   document.getElementById('b-new').onclick = start;
   start();
 })();
