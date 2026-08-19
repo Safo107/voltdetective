@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Rechtsseiten stehen bereits auf noindex
+Disallow: /impressum.html
+Disallow: /datenschutz.html
+
+Sitemap: https://spiel.elektrogenius.de/sitemap.xml

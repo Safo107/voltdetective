@@ -3,6 +3,7 @@
   "short_name": "VoltDetective",
   "description": "Interaktives Stromkreis-Spiel: Fehler per echter Simulation finden.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0d1b2e",
   "theme_color": "#0d1b2e",
