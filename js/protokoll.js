@@ -59,6 +59,12 @@ var Protokoll = (function () {
     var kChar = pl.lsTyp === 'C' ? 10 : 5;
     var ian  = pl.rcd;                    // RCD-Nennfehlerstrom (mA), null wenn kein RCD
 
+    /* Netzinnenwiderstand und Leitungswiderstand einmal je Pruefling festlegen.
+     * Beide Werte werden von der Ri-Zeile UND der Zs-Zeile genutzt, damit
+     * Zs = Ri + Leitung (L-Hin + PE-Rueck) fuer den Pruefling nachrechenbar bleibt. */
+    var riWert   = rnd(0.10, 0.55, 2);
+    var rLeitung = Math.round(pl.laenge * 2 * rho / q * 1000) / 1000;
+
     var items = [];
 
     /* 1 · Sichtprüfung */
@@ -81,7 +87,7 @@ var Protokoll = (function () {
       key: 'rpe', name: 'Durchgängigkeit Schutzleiter (R PE)', unit: 'Ω',
       limit: '< 1,0 Ω',
       erlaeuterung: 'DIN VDE 0100-600 Abschn. 6.1.3.1: Widerstand des PE-Leiters '
-        + 'vom UV bis zum letzten Betriebsmittel. Für ' + q + ' mm² Cu bei ' + pl.laenge + ' m '
+        + 'vom UV bis zum letzten Betriebsmittel. Für ' + String(q).replace('.', ',') + ' mm² Cu bei ' + pl.laenge + ' m '
         + 'theoretisch ca. ' + String(rpe_theo).replace('.', ',') + ' Ω '
         + '(ρ = 0,0175 Ω·mm²/m). Grenzwert < 1,0 Ω sichert wirksamen Schutzabschaltstrom.',
       gen: function () {
@@ -112,12 +118,13 @@ var Protokoll = (function () {
       erlaeuterung: 'DIN VDE 0100-600 Tab. A.6: Zs_max = Uo / (k × In) = '
         + '230 V / (' + kChar + ' × ' + pl.lsIn + ' A) = '
         + zs.toFixed(3).replace('.', ',') + ' Ω. '
-        + 'Zs = Netzimpedanz Ri + Schleifenwiderstand Leitung (L-Hin + PE-Rück).',
+        + 'Zs = Netzimpedanz Ri + Schleifenwiderstand Leitung (L-Hin + PE-Rück); '
+        + 'die Leitung steuert hier ca. ' + String(rLeitung).replace('.', ',') + ' Ω bei.',
       gen: function () {
-        var ri      = rnd(0.12, 0.45, 2);
-        var r_leitung = pl.laenge * 2 * rho / q;   // L-Hin + PE-Rück
-        var v = ri + r_leitung + rnd(0.0, 0.18, 2);
-        if (Math.random() < 0.22) v = zs * rnd(1.06, 1.65, 2); // gezielt n.i.O.
+        var v = riWert + rLeitung + rnd(0.0, 0.18, 2);
+        // Gezielt n.i.O.: zusaetzlicher Uebergangswiderstand in der Schleife.
+        // Nie kleiner als Ri + Leitung — darunter waere der Wert physikalisch unmoeglich.
+        if (Math.random() < 0.22) v = Math.max(zs * rnd(1.06, 1.65, 2), v);
         return Math.round(v * 100) / 100;
       },
       ok: function (v) { return v <= zs; }
@@ -130,7 +137,7 @@ var Protokoll = (function () {
       erlaeuterung: 'Ri (auch Ze) = Widerstand des Netzes bis zur Hausanschlussübergabe. '
         + 'Informativ für Netzkategorisierung (TN/TT). '
         + 'Kurzschlussstrom Ik = Uo / Zs gibt Auskunft über Selektivität.',
-      gen: function () { return rnd(0.10, 0.55, 2); },
+      gen: function () { return riWert; },
       ok: function ()  { return true; }        // stets i.O. — rein informativ
     });
 

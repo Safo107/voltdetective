@@ -36,7 +36,8 @@
   .prot-table td.pr { text-align: right; font-family: ui-monospace, monospace; }
   .prot-table td.pc { text-align: center; }
   @media print {
-    #header, #disclaimer-bar, #footer, #cookie-banner, .mp-head button, [data-act], canvas { display: none !important; }
+    #header, #disclaimer-bar, #footer, #cookie-banner, .mp-head button, [data-act], canvas,
+    .no-print { display: none !important; }
     body, #app { background: #fff !important; color: #000 !important; }
     .card { border: 1px solid #ccc !important; background: #fff !important; }
     .ok { color: #1a7a3f !important; } .no { color: #c0392b !important; }
@@ -107,7 +108,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script src="js/board.js?v=3"></script>
-<script src="js/protokoll.js?v=2"></script>
+<script src="js/protokoll.js?v=3"></script>
 <script>
 (function(){
   var round, done, correct, units = {};
@@ -207,7 +208,7 @@
       + 'flex-wrap:wrap;gap:10px;margin-bottom:14px">'
       + '<h3 style="font-family:\'Barlow Condensed\',sans-serif;font-weight:900;font-size:18px;margin:0">'
       + 'Prüfprotokoll</h3>'
-      + '<button class="btn tiny ghost" onclick="window.print()" style="display:inline-flex;'
+      + '<button class="btn tiny ghost no-print" onclick="window.print()" style="display:inline-flex;'
       + 'align-items:center;gap:6px">'
       + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
       + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
