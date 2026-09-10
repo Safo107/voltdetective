@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Ampel-Assistent – VoltDetective</title>
+<meta property="og:title" content="Ampel-Assistent – VoltDetective"/>
+<meta property="og:description" content="Kamerabasierter Ampel-Assistent: erkennt den Wechsel auf Gelb/Grün und meldet ihn per Ton und Vibration. Studien- und Testwerkzeug von ElektroGenius."/>
+<meta property="og:url" content="https://spiel.elektrogenius.de/ampel.html"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="VoltDetective"/>
+<meta property="og:locale" content="de_DE"/>
+<meta property="og:image" content="https://spiel.elektrogenius.de/icon-512.png"/>
+<meta property="og:image:alt" content="VoltDetective – ElektroGenius"/>
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="Ampel-Assistent – VoltDetective"/>
+<meta name="twitter:description" content="Kamerabasierter Ampel-Assistent: erkennt den Wechsel auf Gelb/Grün und meldet ihn per Ton und Vibration."/>
+<meta name="twitter:image" content="https://spiel.elektrogenius.de/icon-512.png"/>
+<meta name="description" content="Kamerabasierter Ampel-Assistent: erkennt den Wechsel auf Gelb/Grün und meldet ihn per Ton und Vibration. Studien- und Testwerkzeug von ElektroGenius.">
+<link rel="canonical" href="https://spiel.elektrogenius.de/ampel.html">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css?v=4">
+<style>
+  .cam-wrap { position: relative; margin-top: 18px; border: 1px solid var(--border); border-radius: 14px;
+              overflow: hidden; background: #06101c; min-height: 180px; }
+  .cam-wrap video, .cam-wrap #demo-view { display: block; width: 100%; height: auto; }
+  .cam-wrap #overlay { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; }
+  #flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .18s; }
+  .cam-hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 7px 10px; font-size: 12px;
+              color: var(--muted); background: rgba(6,16,28,.75); pointer-events: none; }
+
+  .state-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding: 14px 16px;
+               background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; }
+  #state-dot { width: 30px; height: 30px; border-radius: 50%; background: #2b3d55; flex-shrink: 0; transition: background .15s, box-shadow .15s; }
+  #state-text { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 21px; white-space: nowrap; }
+  #metrics { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+
+  .ctrl-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .ctrl-row .btn:disabled { opacity: .4; cursor: default; }
+  #err { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px;
+         background: rgba(230,48,48,.12); border: 1px solid rgba(230,48,48,.4); color: #ffb4b4; }
+  #demo-note { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: 14px;
+               background: rgba(245,166,35,.10); border: 1px solid rgba(245,166,35,.35); }
+
+  .panel { margin-top: 18px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 6px 16px 16px; }
+  .panel > summary { cursor: pointer; padding: 12px 0; font-family: 'Barlow Condensed', sans-serif;
+                     font-weight: 900; font-size: 18px; list-style: none; }
+  .panel > summary::-webkit-details-marker { display: none; }
+  .panel > summary::before { content: '▸ '; color: var(--cyan); }
+  .panel[open] > summary::before { content: '▾ '; }
+  .set { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+         padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .set:last-child { border-bottom: none; }
+  .set label { font-size: 14px; }
+  .set .sub { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: -2px; }
+  .set input[type=range] { width: 160px; accent-color: var(--cyan); }
+  .set input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--cyan); }
+  .set .val { font-size: 12px; color: var(--cyan); min-width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+  .set select { background: var(--card-bg2); border: 1px solid var(--border); color: var(--text);
+                border-radius: 8px; padding: 7px 10px; max-width: 190px; }
+
+  .log-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .log-table th, .log-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .log-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+  .board-empty { color: var(--muted); font-style: italic; }
+  .safety { margin-top: 18px; padding: 14px 16px; border-radius: 12px; font-size: 13.5px; line-height: 1.65;
+            background: rgba(230,48,48,.08); border: 1px solid rgba(230,48,48,.35); }
+  .safety b { color: #ffb4b4; }
+  .howto { margin-top: 18px; }
+  .howto li { margin: 6px 0 6px 18px; font-size: 14px; color: var(--muted); }
+  .howto li b { color: var(--text); }
+</style>
+</head>
+<body>
+<canvas id="eg-particles" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;"></canvas>
+<div style="position:relative;z-index:1">
+<div id="app">
+
+  <header id="header">
+    <div class="logo-circle">EG</div>
+    <div id="header-title">Ampel-Assistent</div>
+    <div class="header-actions"><a class="btn tiny ghost" href="index.html">← Menü</a></div>
+  </header>
+
+  <main id="content">
+    <div class="intro">
+      <h1 class="intro-title">Ampel-Erkennung per Kamera</h1>
+      <p class="intro-sub">Handy in die Halterung, Kamera nach vorn: Wechselt die Ampel im Suchbereich auf Gelb oder Grün, gibt es Ton, Vibration und optional eine Sprachansage. Die Auswertung läuft komplett offline im Gerät.</p>
+    </div>
+
+    <div class="cam-wrap">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="demo-view" width="640" height="480" style="display:none"></canvas>
+      <canvas id="overlay"></canvas>
+      <div id="flash"></div>
+      <div class="cam-hint">Tippe ins Bild, um den Suchbereich dorthin zu verschieben.</div>
+    </div>
+
+    <div class="state-row">
+      <div id="state-dot"></div>
+      <div id="state-text">Gestoppt</div>
+      <div id="metrics"></div>
+    </div>
+
+    <div id="err" style="display:none"></div>
+    <div id="demo-note" style="display:none">
+      <b>Demo-Modus:</b> Statt des Kamerabilds läuft eine gezeichnete Ampel durch ihre Phasen —
+      damit lässt sich die komplette Kette (Erkennung → Ton → Vibration) ohne Auto prüfen.
+    </div>
+
+    <div class="ctrl-row">
+      <button id="btn-start" class="btn primary">Erkennung starten</button>
+      <button id="btn-demo" class="btn accent">Demo-Modus</button>
+      <button id="btn-test" class="btn">Alarm testen</button>
+    </div>
+
+    <details class="panel">
+      <summary>Einstellungen</summary>
+
+      <div class="set">
+        <label for="r-sens">Empfindlichkeit</label>
+        <span class="val" id="v-sens"></span>
+        <input id="r-sens" type="range" min="1" max="5" step="1">
+        <div class="sub">Streng = weniger Fehlalarme durch Rücklichter, Reklame und Sonne. Empfindlich = erkennt auch weiter entfernte oder blasse Ampeln.</div>
+      </div>
+
+      <div class="set">
+        <label for="r-confirm">Bestätigung</label>
+        <span class="val" id="v-confirm"></span>
+        <input id="r-confirm" type="range" min="1" max="8" step="1">
+        <div class="sub">So viele Bilder hintereinander müssen dieselbe Farbe zeigen, bevor gemeldet wird. Höher = träger, aber sicherer.</div>
+      </div>
+
+      <div class="set">
+        <label for="r-cooldown">Sperrzeit</label>
+        <span class="val" id="v-cooldown"></span>
+        <input id="r-cooldown" type="range" min="1" max="15" step="1">
+        <div class="sub">Mindestabstand zwischen zwei Meldungen.</div>
+      </div>
+
+      <div class="set">
+        <label for="r-roi">Größe Suchbereich</label>
+        <span class="val" id="v-roi"></span>
+        <input id="r-roi" type="range" min="0.15" max="1" step="0.05">
+        <div class="sub">Klein und auf die Ampelhöhe gelegt = deutlich weniger Fehlalarme.</div>
+      </div>
+
+      <div class="set">
+        <label for="c-alertAmber">Auch bei Gelb melden</label>
+        <input id="c-alertAmber" type="checkbox">
+      </div>
+
+      <div class="set">
+        <label for="c-requireRedFirst">Grün nur nach vorherigem Rot/Gelb</label>
+        <input id="c-requireRedFirst" type="checkbox">
+        <div class="sub">Verhindert Dauermeldungen an einer bereits grünen Ampel.</div>
+      </div>
+
+      <div class="set">
+        <label for="c-sound">Signalton</label>
+        <input id="c-sound" type="checkbox">
+      </div>
+
+      <div class="set">
+        <label for="c-vibrate">Vibration<span id="hint-vibrate" class="sub" style="display:inline"></span></label>
+        <input id="c-vibrate" type="checkbox">
+      </div>
+
+      <div class="set">
+        <label for="c-speech">Sprachansage („Grün“)</label>
+        <input id="c-speech" type="checkbox">
+      </div>
+
+      <div class="set">
+        <label for="c-keepAwake">Bildschirm anlassen</label>
+        <input id="c-keepAwake" type="checkbox">
+      </div>
+
+      <div class="set">
+        <label for="cam-select">Kamera</label>
+        <select id="cam-select"></select>
+      </div>
+
+      <div class="ctrl-row">
+        <button id="btn-reset" class="btn tiny ghost">Auf Standard zurücksetzen</button>
+      </div>
+    </details>
+
+    <details class="panel" open>
+      <summary>Ereignis-Protokoll</summary>
+      <table class="log-table">
+        <thead><tr><th>Zeit</th><th>Ereignis</th></tr></thead>
+        <tbody id="log-body"></tbody>
+      </table>
+      <div class="ctrl-row">
+        <button id="btn-csv" class="btn tiny">Als CSV exportieren</button>
+      </div>
+    </details>
+
+    <details class="panel">
+      <summary>Einrichtung &amp; Tipps</summary>
+      <ol class="howto">
+        <li><b>Handyhalterung</b> mittig an die Windschutzscheibe, Kamera nach vorn, Sicht nicht verdeckt.</li>
+        <li><b>Diese Seite über https öffnen</b> und den Kamerazugriff erlauben (ohne HTTPS blockt der Browser die Kamera).</li>
+        <li><b>Suchbereich setzen:</b> ins Bild tippen, wo die Ampeln erscheinen — meist oberes Drittel. Kleiner Bereich = weniger Fehlalarme.</li>
+        <li><b>Erst im Stand kalibrieren:</b> Demo-Modus prüfen, dann an einer echten Ampel im Stand testen und die Empfindlichkeit nachziehen.</li>
+        <li><b>Gegenlicht vermeiden:</b> tiefstehende Sonne direkt hinter der Ampel ist der häufigste Störfall — dann Empfindlichkeit erhöhen oder Suchbereich enger ziehen.</li>
+        <li><b>Als App installieren:</b> im Browsermenü „Zum Startbildschirm hinzufügen“ — läuft dann im Vollbild.</li>
+      </ol>
+    </details>
+
+    <div class="safety">
+      <b>Wichtig — kein Fahrassistent.</b> Dieses Werkzeug ist ein Studien- und Testaufbau für
+      Privatgelände und ersetzt weder den Blick auf die Ampel noch die Aufmerksamkeit der fahrenden Person.
+      Es kann Ampeln übersehen, falsche Farben melden oder auf Rücklichter und Reklame reagieren.
+      Verantwortlich für das Anfahren bleibt immer die fahrende Person (§ 1 StVO). Das Gerät muss so
+      montiert sein, dass es die Sicht nicht behindert und nicht während der Fahrt bedient werden muss.
+    </div>
+
+    <div class="safety" style="background:rgba(0,198,255,.07);border-color:var(--border)">
+      <b>Datenschutz:</b> Das Kamerabild wird ausschließlich lokal im Browser ausgewertet.
+      Es werden keine Bilder gespeichert und nichts an einen Server übertragen; das Protokoll
+      liegt nur im Arbeitsspeicher dieser Sitzung.
+    </div>
+  </main>
+
+  <div id="disclaimer-bar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Der Ampel-Assistent dient ausschließlich Test- und Studienzwecken und gibt unsere persönliche Meinung als ausgebildete Elektrofachkraft wieder. Kein zugelassenes Fahrerassistenzsystem.
+  </div>
+
+  <footer id="footer">
+    VoltDetective by <a href="https://elektrogenius.de" target="_blank" rel="noopener">elektrogenius.de</a>
+    &nbsp;·&nbsp; <a href="impressum.html">Impressum</a> &nbsp;·&nbsp; <a href="datenschutz.html">Datenschutz</a>
+  </footer>
+
+</div><!-- /#app -->
+</div>
+
+<div id="cookie-banner">
+  <div id="cookie-text">Wir nutzen Google Analytics zur Verbesserung unserer App. Einverstanden?</div>
+  <div id="cookie-actions">
+    <button id="cookie-accept">Akzeptieren</button>
+    <button id="cookie-reject">Ablehnen</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var consent = localStorage.getItem('eg_analytics');
+  function loadGA() {
+    if (window._gaLoaded) return;
+    window._gaLoaded = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-9EYXMP1S7Y';
+    s.async = true;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', 'G-9EYXMP1S7Y');
+  }
+  if (consent === '1') { loadGA(); }
+  var banner = document.getElementById('cookie-banner');
+  if (consent !== null) { if (banner) banner.remove(); }
+  var acc = document.getElementById('cookie-accept');
+  var rej = document.getElementById('cookie-reject');
+  if (acc) acc.addEventListener('click', function(){ localStorage.setItem('eg_analytics','1'); if (banner) banner.remove(); loadGA(); });
+  if (rej) rej.addEventListener('click', function(){ localStorage.setItem('eg_analytics','0'); if (banner) banner.remove(); });
+})();
+</script>
+
+<script src="js/ampel-detect.js"></script>
+<script src="js/ampel.js"></script>
+
+<script src="assets/js/particles.js"></script>
+<script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
+</body>
+</html>
