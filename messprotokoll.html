@@ -111,7 +111,7 @@
 <script>
 (function(){
   var consent = localStorage.getItem('eg_analytics');
-  function loadGA(){ if(window._gaLoaded) return; window._gaLoaded=true; var s=document.createElement('script'); s.src='https://www.googletagmanager.com/gtag/js?id=G-9EYXMP1S7Y'; s.async=true; document.head.appendChild(s); window.dataLayer=window.dataLayer||[]; function gtag(){dataLayer.push(arguments);} window.gtag=gtag; gtag('js',new Date()); gtag('config','G-9EYXMP1S7Y'); }
+  function loadGA(){ if(window._gaLoaded) return; window._gaLoaded=true; var s=document.createElement('script'); s.src='https://www.googletagmanager.com/gtag/js?id=G-MVY3TB5MRK'; s.async=true; document.head.appendChild(s); window.dataLayer=window.dataLayer||[]; function gtag(){dataLayer.push(arguments);} window.gtag=gtag; gtag('js',new Date()); gtag('config','G-MVY3TB5MRK'); }
   if(consent==='1') loadGA();
   var banner=document.getElementById('cookie-banner'); if(consent!==null){ if(banner) banner.remove(); }
   var a=document.getElementById('cookie-accept'), r=document.getElementById('cookie-reject');

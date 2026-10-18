@@ -167,5 +167,38 @@
 </script>
 <script src="assets/js/particles.js"></script>
 <script>if (window.EGParticles) EGParticles.init(document.getElementById('eg-particles'));</script>
+<div id="cookie-banner">
+  <div id="cookie-text">Wir nutzen Google Analytics zur Verbesserung unserer App. Einverstanden?</div>
+  <div id="cookie-actions">
+    <button id="cookie-accept">Akzeptieren</button>
+    <button id="cookie-reject">Ablehnen</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var consent = localStorage.getItem('eg_analytics');
+  function loadGA() {
+    if (window._gaLoaded) return;
+    window._gaLoaded = true;
+    var s = document.createElement('script');
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=G-MVY3TB5MRK';
+    s.async = true;
+    document.head.appendChild(s);
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', 'G-MVY3TB5MRK');
+  }
+  if (consent === '1') { loadGA(); }
+  var banner = document.getElementById('cookie-banner');
+  if (consent !== null) { if (banner) banner.remove(); }
+  var acc = document.getElementById('cookie-accept');
+  var rej = document.getElementById('cookie-reject');
+  if (acc) acc.addEventListener('click', function(){ localStorage.setItem('eg_analytics','1'); if (banner) banner.remove(); loadGA(); });
+  if (rej) rej.addEventListener('click', function(){ localStorage.setItem('eg_analytics','0'); if (banner) banner.remove(); });
+})();
+</script>
 </body>
 </html>
