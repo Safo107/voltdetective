@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0d1b2e">
+<meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Ampel-Assistent – VoltDetective</title>
@@ -26,7 +26,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="assets/fonts/fonts.css?v=1">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <style>
   .cam-wrap { position: relative; margin-top: 18px; border: 1px solid var(--border); border-radius: 14px;
               overflow: hidden; background: #06101c; min-height: 180px; }
@@ -34,7 +34,7 @@
   .cam-wrap #overlay { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: manipulation; }
   #flash { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .18s; }
   .cam-hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 7px 10px; font-size: 12px;
-              color: var(--muted); background: rgba(6,16,28,.75); pointer-events: none; }
+              color: #ffffff; background: rgba(6,16,28,.75); pointer-events: none; }
 
   .state-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 16px; padding: 14px 16px;
                background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; }
@@ -72,7 +72,7 @@
   .board-empty { color: var(--muted); font-style: italic; }
   .safety { margin-top: 18px; padding: 14px 16px; border-radius: 12px; font-size: 13.5px; line-height: 1.65;
             background: rgba(230,48,48,.08); border: 1px solid rgba(230,48,48,.35); }
-  .safety b { color: #ffb4b4; }
+  .safety b { color: #b91c1c; }
   .howto { margin-top: 18px; }
   .howto li { margin: 6px 0 6px 18px; font-size: 14px; color: var(--muted); }
   .howto li b { color: var(--text); }
@@ -224,7 +224,7 @@
       montiert sein, dass es die Sicht nicht behindert und nicht während der Fahrt bedient werden muss.
     </div>
 
-    <div class="safety" style="background:rgba(0,198,255,.07);border-color:var(--border)">
+    <div class="safety" style="background:rgba(230,48,48,.07);border-color:var(--border)">
       <b>Datenschutz:</b> Das Kamerabild wird ausschließlich lokal im Browser ausgewertet.
       Es werden keine Bilder gespeichert und nichts an einen Server übertragen; das Protokoll
       liegt nur im Arbeitsspeicher dieser Sitzung.

@@ -268,13 +268,13 @@
 
     const r = cfg.roi;
     const bx = r.x * cw, by = r.y * ch, bw = r.w * cw, bh = r.h * ch;
-    octx.strokeStyle = 'rgba(0,198,255,.85)'; octx.lineWidth = 2;
+    octx.strokeStyle = 'rgba(230,48,48,.85)'; octx.lineWidth = 2;
     octx.setLineDash([8, 6]); octx.strokeRect(bx, by, bw, bh); octx.setLineDash([]);
-    octx.fillStyle = 'rgba(0,198,255,.9)'; octx.font = '11px Barlow, sans-serif';
+    octx.fillStyle = 'rgba(230,48,48,.9)'; octx.font = '11px Barlow, sans-serif';
     octx.fillText('Suchbereich', bx + 6, by + 14);
 
     if (res && res.blob) {
-      const COL = { red: '#ff5c5c', amber: '#f5a623', green: '#3ddc84' };
+      const COL = { red: '#ff5c5c', amber: '#b45309', green: '#3ddc84' };
       const b = res.blob;
       octx.strokeStyle = COL[b.color]; octx.lineWidth = 3;
       octx.strokeRect(bx + (b.x / ANALYSIS_W) * bw, by + (b.y / ANALYSIS_H) * bh,
@@ -284,7 +284,7 @@
 
   function updateStatus(res) {
     const dot = $('state-dot'), txt = $('state-text');
-    const COL = { red: '#ff5c5c', amber: '#f5a623', green: '#3ddc84' };
+    const COL = { red: '#ff5c5c', amber: '#b45309', green: '#3ddc84' };
     const NAME = { red: 'Rot erkannt', amber: 'Gelb erkannt', green: 'Grün erkannt' };
     const s = state.state;
     dot.style.background = s ? COL[s] : '#2b3d55';
